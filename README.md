@@ -37,3 +37,29 @@ used for learning and creativity — to make music more accessible for everyone.
 Everything is shared freely, with no ads, and open for community contribution.
 
 “To the glory of God — that more people may find joy in music.”
+
+-------------------------------------------------------------------------------
+
+How to convert notes:
+1) Find the piano sheet of your song: 
+https://musescore.com/?srsltid=AfmBOopwBU-Ge4U0zAtVZECAhcQGqeg1QR5qg3Fe9DkHttrLMt9-fVYq&utm_source=chatgpt.com
+2) Download the MusicXML file.
+3) Rename the ordner as .zip
+4) Open it. The Internet-Explorer file you can pull out.
+5) Open it with an "Editor"
+6) Save it as .musicxml   (dont select .txt but "all files")
+7) give it to ChatGPT and say this Prompt:
+      “Convert this MusicXML file into Notecode —
+      both hands combined,
+      right hand uppercase, left hand lowercase,
+      simultaneous notes connected with ‘+’,
+      sorted from top to bottom,
+      each note or chord on a new line,
+      and one empty line between measures.”
+8) The "Notecode" you can than feed to the program "Note Converter."
+     It outputs a long picture, so it´s currently just for screens, and not for print out.
+
+
+
+
+
