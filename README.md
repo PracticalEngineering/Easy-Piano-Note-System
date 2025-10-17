@@ -60,6 +60,8 @@ https://musescore.com/?srsltid=AfmBOopwBU-Ge4U0zAtVZECAhcQGqeg1QR5qg3Fe9DkHttrLM
      It outputs a long picture, so it´s currently just for screens, and not for print out.
 
 
+Feel free to tell me what you think about it, which songs you would like to have, or whatever is on your mind:
+
 
 
 
