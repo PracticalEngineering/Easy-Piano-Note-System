@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Reductio ad absurdum</title>
+  <style>
+    :root { --bg:#0f1115; --fg:#e6e6e6; --muted:#9aa0a6; }
+    body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.4 system-ui,Segoe UI,Roboto,Helvetica,Arial}
+    .wrap{max-width:1100px;margin:0 auto;padding:20px;}
+    h1{font-size:22px;margin:0 0 12px}
+    .panel{background:#171a21;border:1px solid #2a2f3a;border-radius:14px;padding:16px;margin-bottom:16px;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+    textarea{width:100%;min-height:120px;background:#0b0d11;color:var(--fg);border:1px solid #2a2f3a;border-radius:12px;padding:10px;font-family:ui-monospace,monospace}
+    input,button{border-radius:10px;padding:8px}
+    button{background:#2b7fff;color:white;border:none;cursor:pointer}
+    canvas{width:100%;background:#0a0c10;border-radius:14px;border:1px solid #2a2f3a}
+    small{color:var(--muted)}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Reductio ad absurdum</h1>
+  <div class="panel">
+    <p><b>Note Code:</b><br>
+    </p>
+    <textarea id="input" spellcheck="false">C5+C4+c3
+D4+d3
+E4+e3
+F4+f3
+G4+g3
+A4+a3
+B#4+bb3
+R</textarea>
+    <br><br>
+    <label>Grid (px per quarter note)</label>
+    <input type="number" id="beat" value="60" min="24" max="140">
+    <label>Line spacing</label>
+    <input type="number" id="lineGap" value="14" min="8" max="24">
+    <br><br>
+    <button id="render">Render</button>
+    <button id="exportPng">Save as PNG</button>
+  </div>
+  <canvas id="score" width="1800" height="600"></canvas>
+</div>
+
+<script>
+const NOTE_COLORS={'C':'#FFD400','D':'#1976D2','E':'#2E7D32','F':'#8E24AA','G':'#6D4C41','A':'#D32F2F','B':'#F57C00','H':'#F57C00'};
+const ORDER=['C','D','E','F','G','A','B'];
+
+function parseToken(tok){
+  tok=tok.trim();
+  if(!tok)return null;
+  if(/^R(:(\d*\.?\d+))?$/i.test(tok)){
+    const m=tok.match(/^R(?::(\d*\.?\d+))?$/i);
+    return{rest:true,dur:m&&m[1]?parseFloat(m[1]):1};
+  }
+  const parts=tok.split(':');
+  const notes=parts[0].split('+').map(n=>{
+    const m=n.match(/^([A-GH])([#♯b♭]?)(\d)?$/i);
+    if(!m)return null;
+    const isLower = /^[a-gh]/.test(n) && n[0]===n[0].toLowerCase();
+    return{step:m[1].toUpperCase(),isLower,acc:(m[2]||'').replace('♯','#').replace('♭','b'),oct:m[3]?parseInt(m[3]):4};
+  }).filter(Boolean);
+  const dur=parts[1]?parseFloat(parts[1]):1;
+  return{chord:notes,dur,rest:false};
+}
+
+function yFor(step,oct,minOct,maxOct,staffHeightPerOct,lineGap,topMargin,extraGap){
+  const oIndex=(maxOct-oct);
+  const yBase=topMargin+oIndex*(staffHeightPerOct+extraGap);
+  let y=yBase + lineGap*2;
+  if(step==='B' || step==='H'){ y = yBase; }
+  if(step==='A'){ y = yBase + lineGap*0.5; }
+  if(step==='G'){ y = yBase + lineGap; }
+  if(step==='F'){ y = yBase + lineGap*1.5; }
+  if(step==='E'){ y = yBase + lineGap*2; }
+  if(step==='D'){ y = yBase + lineGap*2.5; }
+  if(step==='C'){ y = yBase + lineGap*3; }
+  return y;
+}
+
+function layoutAndDraw(tokens){
+  const canvas=document.getElementById('score');
+  const ctx=canvas.getContext('2d');
+  const pxPerBeat=+document.getElementById('beat').value;
+  const lineGap=+document.getElementById('lineGap').value;
+  const topMargin=40,leftMargin=60,rightMargin=40,bottomMargin=40;
+  const extraGap=lineGap*3;
+  let minOct=9,maxOct=0,totalBeats=0;
+  tokens.forEach(t=>{
+    if(!t||t.rest)return;
+    t.chord.forEach(n=>{minOct=Math.min(minOct,n.oct);maxOct=Math.max(maxOct,n.oct);});
+    totalBeats+=t.dur;
+  });
+  if(minOct===9){minOct=3;maxOct=5;}
+  const staffHeightPerOct=lineGap*4;
+  const height=(maxOct-minOct+2)*(staffHeightPerOct+extraGap)+topMargin+bottomMargin;
+  canvas.height=height;
+  // Breitenfix: zusätzlicher Platz am Ende
+  canvas.width=Math.max(900,leftMargin+rightMargin+Math.ceil(totalBeats*pxPerBeat)+500);
+  ctx.fillStyle='#0a0c10';ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  // Linien mit heller 4er-Octave
+  for(let o=minOct;o<=maxOct;o++){
+    const yBase=topMargin+(maxOct-o)*(staffHeightPerOct+extraGap);
+    ctx.strokeStyle = (o===4) ? '#505560' : '#2a2f3a';
+    for(let i=0;i<3;i++){
+      const y=yBase+i*lineGap;
+      ctx.beginPath();
+      ctx.moveTo(leftMargin-20,y);
+      ctx.lineTo(canvas.width-rightMargin,y);
+      ctx.stroke();
+    }
+  }
+
+  let curX=leftMargin+10;
+  const noteRadiusX=9,noteRadiusY=7;
+  tokens.forEach(t=>{
+    if(!t)return;
+    const dur=t.dur||1;
+    if(t.rest){
+      const yTop=topMargin;
+      const yBottom=topMargin+(maxOct-minOct)*(staffHeightPerOct+extraGap)+lineGap*2;
+      ctx.beginPath();
+      ctx.strokeStyle='#aaa';
+      ctx.lineWidth=1;
+      ctx.moveTo(curX,yTop);
+      ctx.lineTo(curX,yBottom);
+      ctx.stroke();
+    }else{
+      t.chord.forEach(n=>{
+        const y=yFor(n.step,n.oct,minOct,maxOct,staffHeightPerOct,lineGap,topMargin,extraGap);
+        let color=NOTE_COLORS[n.step]||'#888';
+        // fix: make lowercase notes (left hand) 30% darker by default
+        if(n.isLower){
+          if(color.startsWith('hsl')){
+            let m=color.match(/hsl\((\d+),\s*(\d+)%,\s*(\d+)%\)/);
+            if(m){ let h=+m[1], s=+m[2], l=+m[3]; l=Math.max(0,Math.round(l*0.6)); color=`hsl(${h}, ${s}%, ${l}%)`; }
+          }else if(color.startsWith('#')){
+            // convert simple hex to rgb and darken
+            const hex=color.replace('#','');
+            let r=parseInt(hex.substring(0,2),16), g=parseInt(hex.substring(2,4),16), b=parseInt(hex.substring(4,6),16);
+            r=Math.round(r*0.6); g=Math.round(g*0.6); b=Math.round(b*0.6);
+            color = `rgb(${r}, ${g}, ${b})`;
+          }else if(color.startsWith('rgb')){
+            const nums=color.match(/\d+/g).map(Number);
+            color = `rgb(${Math.round(nums[0]*0.6)}, ${Math.round(nums[1]*0.6)}, ${Math.round(nums[2]*0.6)})`;
+          }
+        }
+        ctx.beginPath();ctx.ellipse(curX,y,noteRadiusX,noteRadiusY,0,0,Math.PI*2);
+        ctx.fillStyle=color;ctx.fill();
+        ctx.strokeStyle='#00000066';ctx.stroke();
+        if(n.acc){ctx.fillStyle='#d0d3d8';ctx.font='bold 13px system-ui';ctx.fillText(n.acc,curX-20,y+4);}
+      });
+    }
+    curX+=dur*pxPerBeat;
+  });
+}
+
+// automatische Klammer-Entfernung integriert
+document.getElementById('render').onclick=()=>{
+  const raw = document.getElementById('input').value.replace(/[\[\]]/g, '');
+  const tokens = raw.split(/[\s,]+/).map(parseToken).filter(Boolean);
+  layoutAndDraw(tokens);
+};
+
+document.getElementById('exportPng').onclick=()=>{
+  const link=document.createElement('a');
+  link.download='farben-noten.png';
+  link.href=document.getElementById('score').toDataURL('image/png');
+  link.click();
+};
+
+document.getElementById('render').click();
+</script>
+</body>
+</html>
