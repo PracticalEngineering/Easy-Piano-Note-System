@@ -50,6 +50,12 @@ Everything is shared freely, with no ads, and open for community contribution.
 
 ---
 
+## Song library
+
+The website has a **song library** with 14 free hymns and Christmas songs – *Amazing Grace*, *A Mighty Fortress Is Our God*, *Silent Night*, *O Holy Night*, *Joy to the World* and more. Click a song and play. Every song can be linked directly, e.g. [#amazing-grace](https://practicalengineering.github.io/Easy-Piano-Note-System/#amazing-grace).
+
+All songs are in the public domain or under the free CPDL license; the source is shown under each title. Want to add a song? See [library/README.md](library/README.md).
+
 ## How to convert a song
 
 1. Get the song as **MusicXML** (`.mxl`, `.musicxml` or `.xml`): export it from MuseScore, Sibelius, Finale or Dorico (*File → Export → MusicXML*), or download it from a free archive such as the [Choral Public Domain Library](https://www.cpdl.org) or [Mutopia](https://www.mutopiaproject.org).
@@ -126,13 +132,15 @@ pip install music21 && python tools/crosscheck_music21.py examples/silent_night.
 | `tools/build_html/core.js` | the converter in JavaScript (port of `notencode.py`) plus the phrase detection for the rows |
 | `tools/build_html/template.html` | page layout, drawing, keyboard, translations |
 | `tests/` | tests and reference output |
+| `library/` | the song library: songs and `library.json` |
 | `examples/` | Silent Night (public domain) |
 
 Adding a language: in `template.html`, copy the `en` block in `T`, translate the values and add the language to `LANGS`. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Roadmap
 
-- An open library of public-domain hymns in this system, where anyone can add songs.
+- More songs in the library – anyone can add public-domain songs (see [library/README.md](library/README.md)).
+- Later: uploading songs directly on the website.
 - More languages for the web page.
 
 ## Community

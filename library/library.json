@@ -1,0 +1,181 @@
+{
+ "about": "Songs shown in the library of the web page. Only public-domain music or music under a license that allows sharing (e.g. the CPDL license). See library/README.md.",
+ "licenses": {
+  "Public domain": "https://en.wikipedia.org/wiki/Public_domain",
+  "CPDL": "https://www.cpdl.org/wiki/index.php/ChoralWiki:CPDL"
+ },
+ "songs": [
+  {
+   "id": "silent-night",
+   "title": {
+    "en": "Silent Night",
+    "de": "Stille Nacht"
+   },
+   "group": "christmas",
+   "file": "songs/silent-night.mxl",
+   "credit": "Melody Franz Xaver Gruber (1818) · four-part setting from musescore.com",
+   "source": "https://musescore.com/score/2996071",
+   "license": "Public domain"
+  },
+  {
+   "id": "o-come-all-ye-faithful",
+   "title": {
+    "en": "O Come, All Ye Faithful",
+    "de": "Herbei, o ihr Gläub’gen"
+   },
+   "group": "christmas",
+   "file": "songs/o-come-all-ye-faithful.mxl",
+   "credit": "Melody John Francis Wade (Adeste fideles) · edition Andrew Sims, CPDL #61921",
+   "source": "https://www.cpdl.org/wiki/index.php/Adeste_fideles_(Traditional)",
+   "license": "CPDL"
+  },
+  {
+   "id": "hark-the-herald-angels-sing",
+   "title": {
+    "en": "Hark! The Herald Angels Sing",
+    "de": "Hark! The Herald Angels Sing"
+   },
+   "group": "christmas",
+   "file": "songs/hark-the-herald-angels-sing.mxl",
+   "credit": "Melody Felix Mendelssohn · edition Andrew Sims, CPDL #61923",
+   "source": "https://www.cpdl.org/wiki/index.php/Hark!_the_herald_angels_sing_(Felix_Mendelssohn)",
+   "license": "CPDL"
+  },
+  {
+   "id": "joy-to-the-world",
+   "title": {
+    "en": "Joy to the World",
+    "de": "Freue dich, Welt"
+   },
+   "group": "christmas",
+   "file": "songs/joy-to-the-world.mxl",
+   "credit": "Melody Lowell Mason (Antioch) · edition Andrew Sims, CPDL #67499",
+   "source": "https://www.cpdl.org/wiki/index.php/Joy_to_the_world_(Lowell_Mason)",
+   "license": "CPDL"
+  },
+  {
+   "id": "angels-we-have-heard-on-high",
+   "title": {
+    "en": "Angels We Have Heard on High",
+    "de": "Engel bringen frohe Kunde"
+   },
+   "group": "christmas",
+   "file": "songs/angels-we-have-heard-on-high.mxl",
+   "credit": "French traditional (Gloria) · setting Winfried Grünewald, CPDL #30930",
+   "source": "https://www.cpdl.org/wiki/index.php/Les_Anges_dans_nos_campagnes_(Anonymous)",
+   "license": "CPDL"
+  },
+  {
+   "id": "o-how-joyfully",
+   "title": {
+    "en": "O How Joyfully",
+    "de": "O du fröhliche"
+   },
+   "group": "christmas",
+   "file": "songs/o-how-joyfully.mxl",
+   "credit": "Sicilian melody · setting Winfried Grünewald, CPDL #30902",
+   "source": "https://www.cpdl.org/wiki/index.php/O_du_fr%C3%B6hliche_(Winfried_Gr%C3%BCnewald)",
+   "license": "CPDL"
+  },
+  {
+   "id": "o-holy-night",
+   "title": {
+    "en": "O Holy Night",
+    "de": "O heilige Nacht"
+   },
+   "group": "christmas",
+   "file": "songs/o-holy-night.mxl",
+   "credit": "Adolphe Adam (1847) · solo melody and choir, CPDL #20587",
+   "source": "https://www.cpdl.org/wiki/index.php/Minuit%2C_chr%C3%A9tiens_(O_Holy_Night)_(Adolphe_Charles_Adam)",
+   "license": "Public domain",
+   "upper": "P1,P2",
+   "lower": "P3"
+  },
+  {
+   "id": "lift-up-your-heads-ye-mighty-gates",
+   "title": {
+    "en": "Lift Up Your Heads, Ye Mighty Gates",
+    "de": "Macht hoch die Tür"
+   },
+   "group": "christmas",
+   "file": "songs/lift-up-your-heads-ye-mighty-gates.mxl",
+   "credit": "Melody Freylinghausen (1704) · edition Andrew Sims, CPDL #52885",
+   "source": "https://www.cpdl.org/wiki/index.php/Macht_hoch_die_T%C3%BCr%2C_die_Tor_macht_weit_(Traditional)",
+   "license": "CPDL"
+  },
+  {
+   "id": "amazing-grace",
+   "title": {
+    "en": "Amazing Grace",
+    "de": "Amazing Grace"
+   },
+   "group": "hymns",
+   "file": "songs/amazing-grace.mxl",
+   "credit": "Traditional (New Britain) · piano reduction Paul Hayward (2013), CPDL #41966",
+   "source": "https://www.cpdl.org/wiki/index.php/Amazing_grace_(Traditional)",
+   "license": "Public domain",
+   "upper": "P5/1",
+   "lower": "P5/2"
+  },
+  {
+   "id": "a-mighty-fortress-is-our-god",
+   "title": {
+    "en": "A Mighty Fortress Is Our God",
+    "de": "Ein feste Burg ist unser Gott"
+   },
+   "group": "hymns",
+   "file": "songs/a-mighty-fortress-is-our-god.mxl",
+   "credit": "Melody Martin Luther · harmony J. S. Bach (BWV 303) · edition Andrew Sims, CPDL #81218",
+   "source": "https://www.cpdl.org/wiki/index.php/Ein_feste_Burg_ist_unser_Gott%2C_BWV_303_(Johann_Sebastian_Bach)",
+   "license": "CPDL"
+  },
+  {
+   "id": "holy-god-we-praise-thy-name",
+   "title": {
+    "en": "Holy God, We Praise Thy Name",
+    "de": "Großer Gott, wir loben dich"
+   },
+   "group": "hymns",
+   "file": "songs/holy-god-we-praise-thy-name.mxl",
+   "credit": "Setting Hellebusch (1858) · edition Douglas Walczak, CPDL #75274",
+   "source": "https://www.cpdl.org/wiki/index.php/Grosser_Gott_(Ignaz_Franz)",
+   "license": "Public domain"
+  },
+  {
+   "id": "now-thank-we-all-our-god",
+   "title": {
+    "en": "Now Thank We All Our God",
+    "de": "Nun danket alle Gott"
+   },
+   "group": "hymns",
+   "file": "songs/now-thank-we-all-our-god.mxl",
+   "credit": "Melody Johann Crüger · edition Andrew Sims, CPDL #62420",
+   "source": "https://www.cpdl.org/wiki/index.php/Now_thank_we_all_our_God_(Johann_Cr%C3%BCger)",
+   "license": "CPDL"
+  },
+  {
+   "id": "praise-to-the-lord-the-almighty",
+   "title": {
+    "en": "Praise to the Lord, the Almighty",
+    "de": "Lobe den Herren"
+   },
+   "group": "hymns",
+   "file": "songs/praise-to-the-lord-the-almighty.mxl",
+   "credit": "Melody Stralsund (1665) · edition Andrew Sims, CPDL #52919",
+   "source": "https://www.cpdl.org/wiki/index.php/Praise_to_the_Lord%2C_the_Almighty_(Anonymous)",
+   "license": "CPDL"
+  },
+  {
+   "id": "befiehl-du-deine-wege",
+   "title": {
+    "en": "Commit Your Ways to God (Befiehl du deine Wege)",
+    "de": "Befiehl du deine Wege"
+   },
+   "group": "hymns",
+   "file": "songs/befiehl-du-deine-wege.mxl",
+   "credit": "Setting Michael Praetorius · edition Florian Mattersberger, CPDL #37605",
+   "source": "https://www.cpdl.org/wiki/index.php/Befiehl_du_deine_Wege_(Michael_Praetorius)",
+   "license": "CPDL"
+  }
+ ]
+}

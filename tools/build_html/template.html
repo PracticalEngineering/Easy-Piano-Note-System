@@ -77,6 +77,25 @@ button, select { font: inherit; color: inherit; }
 .chip b { color: var(--ink); font-weight: 600; }
 .lang { font-size: 13px; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
 
+/* library */
+.library { display: grid; gap: 10px; }
+.library-head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; justify-content: space-between; }
+.library-head h2 { font-family: var(--font-display); font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+.library-head .small-count { color: var(--muted); font-size: 14px; font-weight: 500; }
+.library-search { font: inherit; font-size: 14px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); min-width: 0; width: 220px; max-width: 100%; }
+.library h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; margin: 4px 0 6px; }
+.songs { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.song { all: unset; box-sizing: border-box; display: block; width: 100%; padding: 10px 14px; cursor: pointer; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r);
+  font-weight: 600; font-size: 15px; line-height: 1.3; overflow-wrap: anywhere; }
+.song:hover { color: var(--rh); border-color: var(--rh); }
+.song:focus-visible { outline: 2px solid var(--rh); outline-offset: 1px; }
+.song[aria-current="true"] { border-color: var(--rh); box-shadow: inset 0 0 0 1px var(--rh); }
+.song small { display: block; font-weight: 400; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.library-note { color: var(--muted); font-size: 14px; background: var(--surface); border: 1px dashed var(--line); border-radius: var(--r); padding: 12px 16px; margin: 0; }
+.library-note a { color: inherit; }
+.credit { margin: -4px 0 0; font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; }
+.credit a { color: inherit; text-underline-offset: 2px; }
+
 /* options */
 .options { display: flex; flex-wrap: wrap; gap: 12px 24px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); }
 .opt { display: grid; gap: 6px; min-width: 0; }
@@ -214,7 +233,7 @@ details[open] summary { border-bottom: 1px solid var(--line); }
 .selection .code { font-family: var(--font-mono); font-weight: 600; }
 @media print {
   body { background: #fff; }
-  .top .file-actions, .options, .summary, #error, .desk, .report, .foot, .toolbar, .selection, .legend7, .fs-buttons, details.more { display: none !important; }
+  .top .file-actions, .library, .options, .summary, #error, .desk, .report, .foot, .toolbar, .selection, .legend7, .fs-buttons, details.more { display: none !important; }
   .wrap { max-width: none; padding: 0; }
   .sheet { border: 0; overflow: visible; }
   .sheet svg { width: 100% !important; }
@@ -243,6 +262,14 @@ details.more[open] > summary { border-bottom: 0; }
       <select class="lang" id="lang" aria-label="Language"></select>
     </div>
   </header>
+
+  <section class="library" id="library" data-i18n-label="lib.title">
+    <div class="library-head">
+      <h2><span data-i18n="lib.title"></span> <span class="small-count" id="library-count"></span></h2>
+      <input type="search" class="library-search" id="library-search" hidden>
+    </div>
+    <div id="library-body"></div>
+  </section>
 
   <section class="options" data-i18n-label="settings">
     <div class="opt">
@@ -286,6 +313,7 @@ details.more[open] > summary { border-bottom: 0; }
         </span>
       </div>
     </div>
+    <p class="credit" id="credit" hidden></p>
     <div class="toolbar">
       <div class="opt"><span data-i18n="view.breaks"></span>
         <div class="seg" data-view="breaks"><button type="button" data-val="phrase" data-i18n="view.breaks.phrase" data-i18n-title="view.breaks.phrase.hint"></button><button type="button" data-val="auto" data-i18n="view.breaks.auto"></button><button type="button" data-val="2" data-i18n="view.breaks.2"></button><button type="button" data-val="4" data-i18n="view.breaks.4"></button></div></div>
@@ -380,6 +408,18 @@ details.more[open] > summary { border-bottom: 0; }
       'tagline': 'MusicXML in, easy piano notes out: 3 lines per octave, 7 fixed places, one color per note name. Learn 7 notes – play 88 keys.',
       'open': 'Open MusicXML',
       'settings': 'Settings',
+      'lib.title': 'Song library',
+      'lib.count': (n) => `· ${n} songs`,
+      'lib.search': 'Search songs',
+      'lib.loading': 'Loading the library …',
+      'lib.offline': 'The song library is on the website: <a href="https://practicalengineering.github.io/Easy-Piano-Note-System/" target="_blank" rel="noopener">open the Easy Piano Note System online</a>. This file converts your own MusicXML files.',
+      'lib.error': 'The library could not be loaded right now. Please reload the page later.',
+      'lib.noMatch': (q) => `No song matches “${q}”.`,
+      'lib.group.christmas': 'Christmas',
+      'lib.group.hymns': 'Hymns',
+      'lib.add': 'Want to add a song? <a href="https://github.com/PracticalEngineering/Easy-Piano-Note-System/tree/main/library" target="_blank" rel="noopener">How to add songs</a>',
+      'lib.loadFail': 'This song could not be loaded.',
+      'credit.source': 'Source',
       'opt.accidentals': 'Accidentals',
       'opt.accidentals.sounding': 'with key signature',
       'opt.accidentals.written': 'printed only',
@@ -491,6 +531,18 @@ details.more[open] > summary { border-bottom: 0; }
       'tagline': 'MusicXML hinein, Klaviernoten in Farben-Noten heraus: 3 Linien pro Oktave, 7 feste Plätze, Farbe nach Tonname. Wer die 7 Plätze kennt, kann jede Oktave lesen.',
       'open': 'MusicXML öffnen',
       'settings': 'Einstellungen',
+      'lib.title': 'Liederbibliothek',
+      'lib.count': (n) => `· ${n} Lieder`,
+      'lib.search': 'Lied suchen',
+      'lib.loading': 'Bibliothek wird geladen …',
+      'lib.offline': 'Die Liederbibliothek ist auf der Website: <a href="https://practicalengineering.github.io/Easy-Piano-Note-System/" target="_blank" rel="noopener">Easy Piano Note System online öffnen</a>. Diese Datei wandelt deine eigenen MusicXML-Dateien um.',
+      'lib.error': 'Die Bibliothek lässt sich gerade nicht laden. Bitte die Seite später neu laden.',
+      'lib.noMatch': (q) => `Kein Lied passt zu „${q}“.`,
+      'lib.group.christmas': 'Weihnachten',
+      'lib.group.hymns': 'Kirchenlieder',
+      'lib.add': 'Ein Lied hinzufügen? <a href="https://github.com/PracticalEngineering/Easy-Piano-Note-System/tree/main/library" target="_blank" rel="noopener">So geht’s</a>',
+      'lib.loadFail': 'Dieses Lied ließ sich nicht laden.',
+      'credit.source': 'Quelle',
       'opt.accidentals': 'Vorzeichen',
       'opt.accidentals.sounding': 'mit Tonart',
       'opt.accidentals.written': 'nur gedruckte',
@@ -614,6 +666,7 @@ details.more[open] > summary { border-bottom: 0; }
       if (RAW_HTML.has(k)) el.innerHTML = t(k); else el.textContent = t(k);
     }
     for (const el of document.querySelectorAll('[data-i18n-label]')) el.setAttribute('aria-label', t(el.dataset.i18nLabel));
+    $('#library-search').placeholder = t('lib.search'); $('#library-search').setAttribute('aria-label', t('lib.search'));
     for (const el of document.querySelectorAll('[data-i18n-title]')) el.title = t(el.dataset.i18nTitle);
     $('#legend7').innerHTML = ['C', 'D', 'E', 'F', 'G', 'A', 'B'].map((s) => `<span class="tone"><i style="background:${COLOR[s]}"></i>${s === 'B' ? esc(t('note.B')) : s}</span>`).join('');
     $('#dropzone').textContent = t('drop');
@@ -622,13 +675,13 @@ details.more[open] > summary { border-bottom: 0; }
   const langSel = $('#lang');
   langSel.innerHTML = Object.entries(LANGS).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('');
   langSel.value = lang;
-  langSel.addEventListener('change', () => { lang = langSel.value; store.set('notencode-lang', lang); applyLang(); render(); });
+  langSel.addEventListener('change', () => { lang = langSel.value; store.set('notencode-lang', lang); applyLang(); renderLibrary(); render(); });
 
   const state = {
     xmlText: null, source: '', example: false, mapping: null, result: null, error: null, sel: 0,
     opts: { accidentals: 'sounding', same_pitch_slur: 'hold', hands: 'playable' },
     view: { breaks: 'phrase', spacing: 'normal', left: 'same', octaves: 'used', time: 'compact', size: '1' },
-    title: '', lyricsExtra: null, phrases: null, manualBreaks: null, pieceKey: null,
+    title: '', lyricsExtra: null, phrases: null, manualBreaks: null, pieceKey: null, song: null,
   };
   const fs = { on: false };                // fullscreen
   try { const o = JSON.parse(store.get('notencode-options') || 'null'); if (o) for (const k in state.opts) if (o[k]) state.opts[k] = o[k]; } catch (e) { /* no storage */ }
@@ -684,7 +737,7 @@ details.more[open] > summary { border-bottom: 0; }
         return new Uint8Array(await out.arrayBuffer());
       };
       state.xmlText = await NotencodeCore.bytesToXmlText(bytes, inflate);
-      state.source = file.name; state.example = false; state.mapping = null; state.sel = 0; state.lyricsExtra = null;
+      state.source = file.name; state.example = false; state.mapping = null; state.sel = 0; state.lyricsExtra = null; setSong(null);
       state.pieceKey = pieceKey(state.xmlText); state.manualBreaks = loadManualBreaks();
       run();
     } catch (e) {
@@ -700,7 +753,7 @@ details.more[open] > summary { border-bottom: 0; }
   }
 
   function render() {
-    $('#file-name').innerHTML = state.example ? t('example') : `<b>${esc(state.source)}</b>`;
+    $('#file-name').innerHTML = state.example ? t('example') : `<b>${esc(state.song ? songTitle(state.song) : state.source)}</b>`;
     for (const seg of document.querySelectorAll('.seg')) {
       const cur = seg.dataset.opt ? state.opts[seg.dataset.opt] : state.view[seg.dataset.view];
       for (const b of seg.querySelectorAll('button')) b.setAttribute('aria-pressed', String(cur === b.dataset.val));
@@ -735,7 +788,8 @@ details.more[open] > summary { border-bottom: 0; }
       html += '</ol></section>';
     }
     $('#measures').innerHTML = html;
-    $('#piece-title').textContent = state.title || (state.example ? 'Silent Night' : state.source.replace(/\.[^.]+$/, ''));
+    $('#piece-title').textContent = state.song ? songTitle(state.song) : (state.title || (state.example ? 'Silent Night' : state.source.replace(/\.[^.]+$/, '')));
+    renderCredit();
     renderColors();
     renderDetail();
     renderReport();
@@ -1221,7 +1275,7 @@ details.more[open] > summary { border-bottom: 0; }
 
   // ---------- saving files
   const download = (blob, name) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000); };
-  const baseName = () => (state.title || state.source || 'easy-piano').replace(/\.[^.]+$/, '').replace(/[\\/:*?"<>|]+/g, '').trim() || 'easy-piano';
+  const baseName = () => ((state.song && songTitle(state.song)) || state.title || state.source || 'easy-piano').replace(/\.[^.]+$/, '').replace(/[\\/:*?"<>|]+/g, '').trim() || 'easy-piano';
   $('#save-txt').addEventListener('click', () => {
     if (!state.result) return;
     download(new Blob([state.result.codeText], { type: 'text/plain;charset=utf-8' }), `${(state.source || 'notencode').replace(/\.[^.]+$/, '')}_notencode.txt`);
@@ -1252,6 +1306,94 @@ details.more[open] > summary { border-bottom: 0; }
   window.addEventListener('dragleave', () => { dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) $('#dropzone').hidden = true; });
   window.addEventListener('drop', (e) => { e.preventDefault(); dragDepth = 0; $('#dropzone').hidden = true; const f = e.dataTransfer.files[0]; if (f) openFile(f); });
 
+  // ---------- song library (library/library.json next to the page; only on the website, not from a local file)
+  const lib = { songs: [], licenses: {}, status: 'loading', query: '' };
+  const songTitle = (s) => (s.title && (s.title[lang] || s.title.en)) || s.id;
+  function setSong(song) {
+    state.song = song;
+    const want = song ? '#' + song.id : '';
+    if (location.hash !== want) { try { history.replaceState(null, '', want || location.pathname + location.search); } catch (e) { /* file: */ } }
+    renderLibrary();
+  }
+  function renderCredit() {
+    const el = $('#credit'), s = state.song;
+    if (!s) { el.hidden = true; el.innerHTML = ''; return; }
+    const safe = (u) => (typeof u === 'string' && /^https:\/\//.test(u) ? u : '');
+    const src = safe(s.source), licUrl = safe(lib.licenses[s.license]);
+    el.innerHTML = [esc(s.credit || ''), src ? `<a href="${esc(src)}" target="_blank" rel="noopener">${esc(t('credit.source'))}</a>` : '',
+      s.license ? (licUrl ? `<a href="${esc(licUrl)}" target="_blank" rel="noopener">${esc(s.license)}</a>` : esc(s.license)) : ''].filter(Boolean).join(' · ');
+    el.hidden = false;
+  }
+  function renderLibrary() {
+    const body = $('#library-body'), count = $('#library-count'), search = $('#library-search');
+    if (lib.status !== 'ready') {
+      count.textContent = ''; search.hidden = true;
+      body.innerHTML = `<p class="library-note">${lib.status === 'offline' ? t('lib.offline') : esc(t(lib.status === 'error' ? 'lib.error' : 'lib.loading'))}</p>`;
+      return;
+    }
+    count.textContent = t('lib.count', lib.songs.length);
+    search.hidden = lib.songs.length < 8;
+    const q = lib.query.trim().toLowerCase();
+    const match = (s) => !q || [s.title.en, s.title.de, s.id, s.credit].some((x) => String(x || '').toLowerCase().includes(q));
+    const groups = [['christmas', t('lib.group.christmas')], ['hymns', t('lib.group.hymns')]];
+    for (const g of new Set(lib.songs.map((s) => s.group))) if (!groups.some(([k]) => k === g)) groups.push([g, String(g)]);
+    let html = '';
+    for (const [key, name] of groups) {
+      const list = lib.songs.filter((s) => s.group === key && match(s)).sort((a, b) => songTitle(a).localeCompare(songTitle(b), lang));
+      if (!list.length) continue;
+      html += `<h3>${esc(name)}</h3><ul class="songs">` + list.map((s) => {
+        const main = songTitle(s);
+        const sub = [s.title.en, s.title.de].find((x) => x && x !== main && !main.includes(x)) || '';
+        return `<li><button type="button" class="song" data-song="${esc(s.id)}"${state.song && state.song.id === s.id ? ' aria-current="true"' : ''}>${esc(main)}${sub ? `<small>${esc(sub)}</small>` : ''}</button></li>`;
+      }).join('') + '</ul>';
+    }
+    if (!html) html = `<p class="library-note">${esc(t('lib.noMatch', lib.query))}</p>`;
+    body.innerHTML = html + `<p class="credit" style="margin-top:8px">${t('lib.add')}</p>`;
+  }
+  async function openSong(id, scroll) {
+    const s = lib.songs.find((x) => x.id === id); if (!s) return;
+    try {
+      const res = await fetch('library/' + s.file);
+      if (!res.ok) throw new Error(String(res.status));
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      const inflate = async (data) => {
+        if (typeof DecompressionStream === 'undefined') throw new NotencodeCore.NotencodeError(t('err.noInflate'));
+        const out = new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw')));
+        return new Uint8Array(await out.arrayBuffer());
+      };
+      state.xmlText = await NotencodeCore.bytesToXmlText(bytes, inflate);
+      state.source = s.file.split('/').pop(); state.example = false; state.sel = 0; state.lyricsExtra = null;
+      state.mapping = s.upper && s.lower ? { upper: String(s.upper), lower: String(s.lower) } : null;
+      state.pieceKey = pieceKey(state.xmlText); state.manualBreaks = loadManualBreaks();
+      setSong(s);
+      run();
+      if (scroll) { const f = $('#colors'); if (f) f.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
+    } catch (e) { toast(t('lib.loadFail')); }
+  }
+  async function loadLibrary() {
+    if (location.protocol === 'file:') { lib.status = 'offline'; renderLibrary(); return; }
+    try {
+      const res = await fetch('library/library.json', { cache: 'no-cache' });
+      if (!res.ok) throw new Error(String(res.status));
+      const data = await res.json();
+      lib.songs = (Array.isArray(data.songs) ? data.songs : []).filter((s) => s && typeof s.id === 'string' && s.title && typeof s.file === 'string' && /^[\w./-]+$/.test(s.file) && !s.file.includes('..'));
+      lib.licenses = data.licenses && typeof data.licenses === 'object' ? data.licenses : {};
+      lib.status = 'ready';
+    } catch (e) { lib.status = 'error'; }
+    renderLibrary();
+    const h = decodeURIComponent(location.hash.slice(1));
+    if (h && lib.songs.some((s) => s.id === h)) openSong(h, true);
+  }
+  document.addEventListener('click', (ev) => {
+    const b = ev.target.closest && ev.target.closest('[data-song]'); if (!b) return;
+    openSong(b.dataset.song, true);
+  });
+  $('#library-search').addEventListener('input', (ev) => { lib.query = ev.target.value; renderLibrary(); });
+  window.addEventListener('hashchange', () => {
+    const h = decodeURIComponent(location.hash.slice(1));
+    if (h && lib.songs.some((s) => s.id === h) && !(state.song && state.song.id === h)) openSong(h, true);
+  });
+
   // start: built-in example
   applyLang();
   state.xmlText = document.getElementById('example-xml').textContent;
@@ -1259,5 +1401,6 @@ details.more[open] > summary { border-bottom: 0; }
   state.pieceKey = pieceKey(state.xmlText); state.manualBreaks = loadManualBreaks();
   try { const bt = JSON.parse(document.getElementById('example-lyrics').textContent); state.lyricsExtra = { punctuation: bt.punctuation, syllables: bt.syllables }; } catch (e) { state.lyricsExtra = null; }
   run();
+  loadLibrary();
 })();
 </script>
