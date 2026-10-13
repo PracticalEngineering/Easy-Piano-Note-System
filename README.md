@@ -56,7 +56,7 @@ Everything is shared freely, with no ads, and open for community contribution.
 2. Open the [web page](https://practicalengineering.github.io/Easy-Piano-Note-System/) (or `index.html` from this repository – a double-click is enough).
 3. Click **Open MusicXML** or drop the file on the page.
 
-That's it – no renaming, unzipping or ChatGPT needed any more. The page draws the song in this system, shows every chord on a keyboard, and can save it as PNG or SVG or print it. **Fullscreen** shows only the notes, for playing at the piano. The page is in English and German.
+That's it. The page draws the song in this system, shows every chord on a keyboard, and can save it as PNG or SVG or print it. **Fullscreen** shows only the notes, for playing at the piano. The page is in English and German.
 
 Please only convert music you are allowed to use. Most hymns written before 1929 are in the public domain; modern songs usually are not.
 
@@ -127,7 +127,6 @@ pip install music21 && python tools/crosscheck_music21.py examples/silent_night.
 | `tools/build_html/template.html` | page layout, drawing, keyboard, translations |
 | `tests/` | tests and reference output |
 | `examples/` | Silent Night (public domain) |
-| `legacy/` | the first version of the converter (Notencode → picture) |
 
 Adding a language: in `template.html`, copy the `en` block in `T`, translate the values and add the language to `LANGS`. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
