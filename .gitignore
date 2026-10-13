@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+output/*
+!output/.gitkeep
+input/*
+!input/.gitkeep
+tools/build_html/node_modules/
+tools/build_html/cases.json
+tools/build_html/package-lock.json
+.DS_Store

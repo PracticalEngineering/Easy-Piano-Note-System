@@ -1,0 +1,2173 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>:root{color-scheme:light dark;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style></head><body>
+<title>Easy Piano Note System</title>
+<meta name="description" content="Turn MusicXML into the Easy Piano Note System, a piano notation with 3 lines per octave, 7 fixed places and one color per note name - plus Notencode, a keyboard view and a check report.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: on top the colored sheet (full width); below it (folded) the desk - Notencode measure by measure on the left,
+   keyboard + detail on the right (sticky); then the check report. */
+:root {
+  --paper: #f3f4f6;
+  --surface: #ffffff;
+  --ink: #16181d;
+  --muted: #5b626e;
+  --line: #d8dbe1;
+  --rh: #1f4fb8;          /* right hand = CAPITALS */
+  --rh-soft: #dfe7fa;
+  --lh: #b0521c;          /* left hand = lowercase */
+  --lh-soft: #f8e3d6;
+  --sel: #e9edf5;
+  --warn: #9a6400;
+  --warn-soft: #fbefd5;
+  --good: #22744a;
+  --good-soft: #dcf1e5;
+  --bad: #b42318;
+  --bad-soft: #fde4e1;
+  --key-white: #fbfbfc;
+  --key-black: #1d1f24;
+  --key-edge: #b9bdc6;
+  --sheet: #ffffff;       /* sheet background */
+  --staff: #b4b9c2;       /* octave lines */
+  --staff-c4: #7f8692;    /* lines of the octave from C4 (anchor) */
+  --rest: #6b7280;        /* rest stroke */
+  --acc: #3a3f47;         /* accidentals */
+  --band: rgba(31, 79, 184, 0.12);
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #111317; --surface: #1a1d23; --ink: #e8eaee; --muted: #9aa1ad; --line: #2c3038;
+    --rh: #86a8ff; --rh-soft: #1d2a4a; --lh: #f2a26c; --lh-soft: #3d2516; --sel: #232833;
+    --warn: #e7b65a; --warn-soft: #3a2c10; --good: #6cc291; --good-soft: #15301f; --bad: #f2847a; --bad-soft: #3d1714;
+    --key-white: #d9dce2; --key-black: #0b0c0f; --key-edge: #555b66;
+    --sheet: #0a0c10; --staff: #2f3542; --staff-c4: #5d6677; --rest: #aaaaaa; --acc: #d0d3d8; --band: rgba(134, 168, 255, 0.16);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #111317; --surface: #1a1d23; --ink: #e8eaee; --muted: #9aa1ad; --line: #2c3038;
+  --rh: #86a8ff; --rh-soft: #1d2a4a; --lh: #f2a26c; --lh-soft: #3d2516; --sel: #232833;
+  --warn: #e7b65a; --warn-soft: #3a2c10; --good: #6cc291; --good-soft: #15301f; --bad: #f2847a; --bad-soft: #3d1714;
+  --key-white: #d9dce2; --key-black: #0b0c0f; --key-edge: #555b66;
+  --sheet: #0a0c10; --staff: #2f3542; --staff-c4: #5d6677; --rest: #aaaaaa; --acc: #d0d3d8; --band: rgba(134, 168, 255, 0.16);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-inline: 20px; padding-block: 24px 48px; display: grid; gap: 20px; }
+@media (max-width: 520px) { .wrap { padding-inline: 16px; } }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+button, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--rh); outline-offset: 2px; }
+
+/* header */
+.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.brand h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(30px, 5vw, 44px); letter-spacing: -0.02em; line-height: 1; }
+.brand p { margin: 8px 0 0; color: var(--muted); max-width: 60ch; }
+.file-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 8px 14px; cursor: pointer; font-weight: 500; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.btn.primary:hover { opacity: .9; }
+.btn.small { padding: 5px 10px; font-size: 13px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 3px 10px; border-radius: 999px; background: var(--sel); color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip b { color: var(--ink); font-weight: 600; }
+.lang { font-size: 13px; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+
+/* options */
+.options { display: flex; flex-wrap: wrap; gap: 12px 24px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); }
+.opt { display: grid; gap: 6px; min-width: 0; }
+.opt > span { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+.seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; background: transparent; padding: 6px 12px; cursor: pointer; font-size: 14px; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.opt small { color: var(--muted); font-size: 12px; max-width: 34ch; }
+
+/* summary */
+.summary { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; font-size: 14px; color: var(--muted); }
+.summary strong { color: var(--ink); font-variant-numeric: tabular-nums; }
+.status { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; font-weight: 600; font-size: 13px; }
+.status.ok { background: var(--good-soft); color: var(--good); }
+.status.warn { background: var(--warn-soft); color: var(--warn); }
+.status.bad { background: var(--bad-soft); color: var(--bad); }
+
+/* desk */
+.desk { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 20px; align-items: start; }
+@media (max-width: 900px) { .desk { grid-template-columns: minmax(0, 1fr); } .side { order: -1; } }
+.code-panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); min-width: 0; }
+.panel-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.panel-head h2 { font-size: 16px; font-weight: 600; }
+.measures { padding: 6px 0 10px; }
+.measure { display: grid; grid-template-columns: 52px minmax(0, 1fr); padding: 6px 12px 6px 0; }
+.measure + .measure { border-top: 1px dashed var(--line); }
+.mnum { font-family: var(--font-mono); font-size: 12px; color: var(--muted); text-align: right; padding: 7px 12px 0 0; font-variant-numeric: tabular-nums; }
+.lines { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+.line { width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; border: 0; background: transparent; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-family: var(--font-mono); font-size: 15px; letter-spacing: .01em; min-width: 0; }
+.line:hover { background: var(--sel); }
+.line[aria-current="true"] { background: var(--sel); box-shadow: inset 0 0 0 1px var(--line); }
+.line .code { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.beat { font-size: 11px; color: var(--muted); width: 5.2em; flex: none; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.r { color: var(--rh); font-weight: 600; }
+.l { color: var(--lh); font-weight: 600; }
+.plus { color: var(--muted); }
+.marker { flex: none; font-family: var(--font-body); font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; }
+.marker.check { background: var(--warn-soft); color: var(--warn); }
+.marker.hand { background: var(--rh-soft); color: var(--rh); }
+
+/* side: keyboard + detail */
+.side { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); display: grid; gap: 14px; min-width: 0; }
+@media (max-width: 900px) { .side { position: static; } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px 16px; min-width: 0; }
+.detail-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.where { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.big-line { font-family: var(--font-mono); font-size: clamp(20px, 3.4vw, 28px); margin: 6px 0 2px; overflow-wrap: anywhere; }
+.holds { font-size: 14px; color: var(--muted); }
+.holds .code { font-family: var(--font-mono); }
+.nav { display: inline-flex; gap: 6px; }
+.keys { overflow-x: auto; margin-top: 12px; }
+.keys svg { display: block; width: 100%; min-width: 420px; height: auto; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--muted); margin-top: 8px; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 6px; }
+.messages { display: grid; gap: 6px; margin-top: 10px; }
+.message { font-size: 13px; padding: 7px 10px; border-radius: 8px; }
+.message.check { background: var(--warn-soft); color: var(--ink); }
+.message.hand { background: var(--rh-soft); color: var(--ink); }
+.message b { font-weight: 600; }
+
+/* report */
+.report { display: grid; gap: 16px; }
+.report h2 { font-family: var(--font-display); font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+.report .lang-note { margin: -8px 0 0; color: var(--muted); font-size: 13px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 14px; }
+.tile b { display: block; font-family: var(--font-mono); font-size: 22px; font-variant-numeric: tabular-nums; }
+.tile span { font-size: 13px; color: var(--muted); }
+.lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.list h3 { font-size: 15px; font-weight: 600; margin-bottom: 8px; display: flex; gap: 8px; align-items: center; }
+.list .count { font-family: var(--font-mono); font-size: 12px; padding: 0 8px; border-radius: 999px; background: var(--sel); color: var(--muted); }
+.list ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.list li { font-size: 13.5px; }
+.list li button { all: unset; cursor: pointer; display: block; padding: 6px 8px; border-radius: 6px; }
+.list li button:hover { background: var(--sel); }
+.list li button:focus-visible { outline: 2px solid var(--rh); }
+.list .loc { font-family: var(--font-mono); font-size: 12px; color: var(--muted); display: block; }
+.empty { color: var(--muted); font-size: 13.5px; }
+details { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); }
+summary { cursor: pointer; padding: 10px 16px; font-weight: 500; }
+details[open] summary { border-bottom: 1px solid var(--line); }
+.textblock { position: relative; }
+.textblock pre { margin: 0; padding: 14px 16px; overflow-x: auto; font-family: var(--font-mono); font-size: 12.5px; line-height: 1.55; }
+.textblock .btn { position: absolute; top: 10px; right: 12px; }
+
+/* error / staff assignment */
+.error { background: var(--bad-soft); border: 1px solid var(--bad); border-radius: var(--r); padding: 14px 16px; display: grid; gap: 10px; }
+.error pre { margin: 0; white-space: pre-wrap; font-family: var(--font-mono); font-size: 13px; }
+.assign { display: grid; gap: 8px; }
+.assign label { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 14px; }
+.assign select { font: inherit; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+
+/* drop zone, toast */
+.dropzone { position: fixed; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--paper) 82%, transparent); border: 3px dashed var(--rh); z-index: 10; font-family: var(--font-display); font-size: 28px; pointer-events: none; }
+.toast { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 8px 16px; border-radius: 8px; font-size: 14px; z-index: 41; max-width: calc(100vw - 32px); }
+
+/* colored sheet */
+.colors { display: grid; gap: 10px; }
+.colors-head { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; justify-content: space-between; }
+.colors-head h2 { font-family: var(--font-display); font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+.legend7 { display: flex; flex-wrap: wrap; gap: 6px; }
+.tone { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px 2px 4px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-weight: 600; font-size: 13px; }
+.tone i { width: 16px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,.35); }
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: end; }
+.toolbar .opt > span { font-size: 11px; }
+.toolbar .seg button { padding: 4px 10px; font-size: 13px; }
+.sheet { background: var(--sheet); border: 1px solid var(--line); border-radius: var(--r); overflow-x: auto; }
+.sheet svg { display: block; height: auto; }
+.sheet .ev { cursor: pointer; }
+.sheet .ev .band { fill: transparent; }
+.sheet .ev:hover .band { fill: var(--band); }
+.sheet .ev.active .band { fill: var(--band); stroke: var(--rh); stroke-width: 1; stroke-dasharray: 3 3; }
+.colors-right { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; }
+.fs-buttons { display: inline-flex; gap: 6px; align-items: center; }
+.fs-only { display: none !important; }
+/* fullscreen: only title, colors and sheet - for playing at the piano */
+.colors.fullscreen { position: fixed; inset: 0; z-index: 20; background: var(--sheet); overflow: auto; align-content: start;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px); }
+.colors.fullscreen .toolbar, .colors.fullscreen .selection { display: none; }
+.colors.fullscreen .fs-only { display: inline-flex !important; }
+.colors.fullscreen .sheet { border: 0; border-radius: 0; }
+.colors.fullscreen .colors-head h2 { font-size: 18px; }
+.colors.fullscreen .btn { background: var(--surface); }
+.selection { font-size: 14px; color: var(--muted); min-height: 1.5em; }
+/* right-click menu on a note: lines by hand */
+.note-menu { position: fixed; z-index: 40; background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .18); padding: 6px; display: grid; min-width: 230px; }
+.note-menu[hidden] { display: none; }
+.note-menu .head { font-size: 12px; color: var(--muted); padding: 4px 12px 6px; }
+.note-menu button { all: unset; box-sizing: border-box; cursor: pointer; padding: 8px 12px; border-radius: 6px; font-size: 14px; }
+.note-menu button:hover:not([disabled]), .note-menu button:focus-visible { background: var(--sel); }
+.note-menu button[disabled] { opacity: .4; cursor: default; }
+.note-menu .sep { height: 1px; background: var(--line); margin: 4px 6px; }
+.selection .code { font-family: var(--font-mono); font-weight: 600; }
+@media print {
+  body { background: #fff; }
+  .top .file-actions, .options, .summary, #error, .desk, .report, .foot, .toolbar, .selection, .legend7, .fs-buttons, details.more { display: none !important; }
+  .wrap { max-width: none; padding: 0; }
+  .sheet { border: 0; overflow: visible; }
+  .sheet svg { width: 100% !important; }
+}
+.foot { color: var(--muted); font-size: 13px; max-width: 75ch; margin: 0; }
+.foot a { color: inherit; }
+details.more { background: transparent; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding-top: 4px; }
+details.more > summary { padding: 10px 0; font-size: 14px; color: var(--muted); font-weight: 500; border: 0; list-style-position: inside; }
+details.more > summary:hover { color: var(--ink); }
+details.more[open] > summary { border-bottom: 0; }
+.more-body { display: grid; gap: 20px; padding-top: 6px; }
+.foot code { font-family: var(--font-mono); }
+@media (prefers-reduced-motion: no-preference) { .line, .btn { transition: background-color .12s, border-color .12s; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1 data-i18n="title">Easy Piano Note System</h1>
+      <p data-i18n="tagline"></p>
+    </div>
+    <div class="file-actions">
+      <span class="chip" id="file-name"></span>
+      <label class="btn primary" for="file-input" data-i18n="open">Open MusicXML</label>
+      <input id="file-input" type="file" accept=".mxl,.musicxml,.xml" hidden>
+      <select class="lang" id="lang" aria-label="Language"></select>
+    </div>
+  </header>
+
+  <section class="options" data-i18n-label="settings">
+    <div class="opt">
+      <span data-i18n="opt.accidentals"></span>
+      <div class="seg" data-opt="accidentals">
+        <button type="button" data-val="sounding" data-i18n="opt.accidentals.sounding"></button>
+        <button type="button" data-val="written" data-i18n="opt.accidentals.written"></button>
+      </div>
+      <small data-i18n="opt.accidentals.hint"></small>
+    </div>
+    <div class="opt">
+      <span data-i18n="opt.slur"></span>
+      <div class="seg" data-opt="same_pitch_slur">
+        <button type="button" data-val="hold" data-i18n="opt.slur.hold"></button>
+        <button type="button" data-val="restrike" data-i18n="opt.slur.restrike"></button>
+      </div>
+      <small data-i18n="opt.slur.hint"></small>
+    </div>
+    <div class="opt">
+      <span data-i18n="opt.hands"></span>
+      <div class="seg" data-opt="hands">
+        <button type="button" data-val="playable" data-i18n="opt.hands.playable"></button>
+        <button type="button" data-val="staff" data-i18n="opt.hands.staff"></button>
+      </div>
+      <small data-i18n="opt.hands.hint"></small>
+    </div>
+  </section>
+
+  <div id="summary" class="summary" aria-live="polite"></div>
+  <div id="error"></div>
+
+  <section class="colors" id="colors" data-i18n-label="title">
+    <div class="colors-head">
+      <h2 id="piece-title"></h2>
+      <div class="colors-right">
+        <div class="legend7" id="legend7" data-i18n-label="legend.colors"></div>
+        <span class="fs-buttons">
+          <button type="button" class="btn small fs-only" id="smaller" data-i18n-label="fs.smaller">−</button>
+          <button type="button" class="btn small fs-only" id="bigger" data-i18n-label="fs.bigger">+</button>
+          <button type="button" class="btn small" id="fullscreen-btn" aria-pressed="false"></button>
+        </span>
+      </div>
+    </div>
+    <div class="toolbar">
+      <div class="opt"><span data-i18n="view.breaks"></span>
+        <div class="seg" data-view="breaks"><button type="button" data-val="phrase" data-i18n="view.breaks.phrase" data-i18n-title="view.breaks.phrase.hint"></button><button type="button" data-val="auto" data-i18n="view.breaks.auto"></button><button type="button" data-val="2" data-i18n="view.breaks.2"></button><button type="button" data-val="4" data-i18n="view.breaks.4"></button></div></div>
+      <div class="opt"><span data-i18n="view.octaves"></span>
+        <div class="seg" data-view="octaves"><button type="button" data-val="used" data-i18n="view.octaves.used"></button><button type="button" data-val="all" data-i18n="view.octaves.all"></button></div></div>
+      <div class="opt"><span data-i18n="view.time"></span>
+        <div class="seg" data-view="time"><button type="button" data-val="compact" data-i18n="view.time.compact"></button><button type="button" data-val="exact" data-i18n="view.time.exact"></button></div></div>
+      <div class="opt"><span data-i18n="view.spacing"></span>
+        <div class="seg" data-view="spacing"><button type="button" data-val="tight" data-i18n="view.spacing.tight"></button><button type="button" data-val="normal" data-i18n="view.spacing.normal"></button><button type="button" data-val="wide" data-i18n="view.spacing.wide"></button></div></div>
+      <div class="opt"><span data-i18n="view.left"></span>
+        <div class="seg" data-view="left"><button type="button" data-val="same" data-i18n="view.left.same"></button><button type="button" data-val="darker" data-i18n="view.left.darker"></button></div></div>
+      <div class="file-actions">
+        <button type="button" class="btn small" id="png" data-i18n="export.png"></button>
+        <button type="button" class="btn small" id="svg" data-i18n="export.svg"></button>
+        <button type="button" class="btn small" id="print" data-i18n="export.print"></button>
+      </div>
+    </div>
+    <div class="sheet" id="sheet"></div>
+    <div class="selection" id="selection" aria-live="polite"></div>
+  </section>
+
+  <details class="more" id="more">
+  <summary data-i18n="more"></summary>
+  <div class="more-body">
+  <main class="desk" id="desk">
+    <section class="code-panel" data-i18n-label="code.title">
+      <div class="panel-head">
+        <h2 data-i18n="code.title"></h2>
+        <div class="file-actions">
+          <button type="button" class="btn small" id="copy-code" data-i18n="code.copy"></button>
+          <button type="button" class="btn small" id="save-txt" data-i18n="code.save"></button>
+        </div>
+      </div>
+      <div class="measures" id="measures"></div>
+    </section>
+
+    <aside class="side" data-i18n-label="detail.label">
+      <div class="card">
+        <div class="detail-head">
+          <span class="where" id="where"></span>
+          <span class="nav">
+            <button type="button" class="btn small" id="prev" data-i18n-label="detail.prev">◀</button>
+            <button type="button" class="btn small" id="next" data-i18n-label="detail.next">▶</button>
+          </span>
+        </div>
+        <div class="big-line" id="big-line"></div>
+        <div class="holds" id="holds"></div>
+        <div class="keys" id="keys"></div>
+        <div class="legend">
+          <span><i style="background:var(--rh)"></i><span data-i18n="legend.rh"></span></span>
+          <span><i style="background:var(--lh)"></i><span data-i18n="legend.lh"></span></span>
+          <span><i style="background:var(--sel);box-shadow:inset 0 0 0 2px var(--muted)"></i><span data-i18n="legend.held"></span></span>
+        </div>
+        <div class="messages" id="messages"></div>
+      </div>
+    </aside>
+  </main>
+
+  <section class="report" id="report" data-i18n-label="report.title"></section>
+
+  <p class="foot" id="foot"></p>
+  </div>
+  </details>
+</div>
+
+<div class="dropzone" id="dropzone" hidden></div>
+<div class="toast" id="toast" hidden></div>
+<div class="note-menu" id="note-menu" role="menu" hidden></div>
+
+<script type="application/xml" id="example-xml"><score-partwise><work><work-title>Silent Night! Holy Night!</work-title></work><part-list><score-part id="P1"><part-name print-object="no">SA</part-name></score-part><score-part id="P2"><part-name print-object="no">TB</part-name></score-part></part-list><part id="P1"><measure number="1"><attributes><divisions>4</divisions><key><fifths>-2</fifths></key><time><beats>6</beats><beat-type>8</beat-type></time><clef><sign>G</sign><line>2</line></clef></attributes><direction><direction-type><metronome><beat-unit>quarter</beat-unit><beat-unit-dot/><per-minute>35</per-minute></metronome></direction-type></direction><direction><direction-type><dynamics><p/></dynamics></direction-type></direction><note><pitch><step>F</step><octave>4</octave></pitch><duration>3</duration><voice>1</voice><type>eighth</type><dot/><notations><slur type="start" number="1"/><slur type="start" number="2"/></notations></note><note><pitch><step>G</step><octave>4</octave></pitch><duration>1</duration><voice>1</voice><type>16th</type><notations><slur type="stop" number="1"/><slur type="stop" number="2"/></notations></note><note><pitch><step>F</step><octave>4</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><note><pitch><step>D</step><octave>4</octave></pitch><duration>6</duration><voice>1</voice><type>quarter</type><dot/></note><backup><duration>12</duration></backup><note><pitch><step>D</step><octave>4</octave></pitch><duration>3</duration><voice>2</voice><type>eighth</type><dot/></note><note><pitch><step>E</step><alter>-1</alter><octave>4</octave></pitch><duration>1</duration><voice>2</voice><type>16th</type></note><note><pitch><step>D</step><octave>4</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>6</duration><voice>2</voice><type>quarter</type><dot/></note></measure><measure number="2"><note><pitch><step>F</step><octave>4</octave></pitch><duration>3</duration><voice>1</voice><type>eighth</type><dot/><notations><slur type="start" number="1"/><slur type="start" number="2"/></notations></note><note><pitch><step>G</step><octave>4</octave></pitch><duration>1</duration><voice>1</voice><type>16th</type><notations><slur type="stop" number="1"/><slur type="stop" number="2"/></notations></note><note><pitch><step>F</step><octave>4</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><note><pitch><step>D</step><octave>4</octave></pitch><duration>6</duration><voice>1</voice><type>quarter</type><dot/></note><backup><duration>12</duration></backup><note><pitch><step>D</step><octave>4</octave></pitch><duration>3</duration><voice>2</voice><type>eighth</type><dot/></note><note><pitch><step>E</step><alter>-1</alter><octave>4</octave></pitch><duration>1</duration><voice>2</voice><type>16th</type></note><note><pitch><step>D</step><octave>4</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>6</duration><voice>2</voice><type>quarter</type><dot/></note></measure><measure number="3"><direction><direction-type><dynamics><mp/></dynamics></direction-type></direction><note><pitch><step>C</step><octave>5</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note><note><pitch><step>C</step><octave>5</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><note><pitch><step>A</step><octave>4</octave></pitch><duration>6</duration><voice>1</voice><type>quarter</type><dot/></note><backup><duration>12</duration></backup><note><pitch><step>E</step><alter>-1</alter><octave>4</octave></pitch><duration>4</duration><voice>2</voice><type>quarter</type></note><note><pitch><step>E</step><alter>-1</alter><octave>4</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note><note><pitch><step>E</step><alter>-1</alter><octave>4</octave></pitch><duration>6</duration><voice>2</voice><type>quarter</type><dot/></note></measure><measure number="4"><note><pitch><step>B</step><alter>-1</alter><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note><note><pitch><step>B</step><alter>-1</alter><octave>4</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><direction><direction-type><wedge type="crescendo" number="1"/></direction-type></direction><note><pitch><step>F</step><octave>4</octave></pitch><duration>6</duration><voice>1</voice><type>quarter</type><dot/></note><direction><direction-type><wedge type="stop" number="1"/></direction-type></direction><backup><duration>12</duration></backup><note><pitch><step>D</step><octave>4</octave></pitch><duration>4</duration><voice>2</voice><type>quarter</type></note><note><pitch><step>D</step><octave>4</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note><note><pitch><step>D</step><octave>4</octave></pitch><duration>6</duration><voice>2</voice><type>quarter</type><dot/></note></measure><measure number="5"><direction><direction-type><dynamics><mf/></dynamics></direction-type></direction><note><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note><note><pitch><step>G</step><octave>4</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><note><pitch><step>B</step><alter>-1</alter><octave>4</octave></pitch><duration>3</duration><voice>1</voice><type>eighth</type><dot/><notations><slur type="start" number="1"/><slur type="start" number="2"/></notations></note><note><pitch><step>A</step><octave>4</octave></pitch><duration>1</duration><voice>1</voice><type>16th</type><notations><slur type="stop" number="1"/><slur type="stop" number="2"/></notations></note><note><pitch><step>G</step><octave>4</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><backup><duration>12</duration></backup><note><pitch><step>E</step><alter>-1</alter><octave>4</octave></pitch><duration>4</duration><voice>2</voice><type>quarter</type></note><note><pitch><step>E</step><alter>-1</alter><octave>4</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note><note><pitch><step>G</step><octave>4</octave></pitch><duration>3</duration><voice>2</voice><type>eighth</type><dot/></note><note><pitch><step>F</step><octave>4</octave></pitch><duration>1</duration><voice>2</voice><type>16th</type></note><note><pitch><step>E</step><alter>-1</alter><octave>4</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note></measure><measure number="6"><note><pitch><step>F</step><octave>4</octave></pitch><duration>3</duration><voice>1</voice><type>eighth</type><dot/></note><note><pitch><step>G</step><octave>4</octave></pitch><duration>1</duration><voice>1</voice><type>16th</type></note><note><pitch><step>F</step><octave>4</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><note><pitch><step>D</step><octave>4</octave></pitch><duration>6</duration><voice>1</voice><type>quarter</type><dot/></note><backup><duration>12</duration></backup><note><pitch><step>D</step><octave>4</octave></pitch><duration>3</duration><voice>2</voice><type>eighth</type><dot/></note><note><pitch><step>E</step><alter>-1</alter><octave>4</octave></pitch><duration>1</duration><voice>2</voice><type>16th</type></note><note><pitch><step>D</step><octave>4</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>6</duration><voice>2</voice><type>quarter</type><dot/></note></measure><measure number="7"><direction><direction-type><dynamics><mp/></dynamics></direction-type></direction><note><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note><note><pitch><step>G</step><octave>4</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><note><pitch><step>B</step><alter>-1</alter><octave>4</octave></pitch><duration>3</duration><voice>1</voice><type>eighth</type><dot/><notations><slur type="start" number="1"/><slur type="start" number="2"/></notations></note><note><pitch><step>A</step><octave>4</octave></pitch><duration>1</duration><voice>1</voice><type>16th</type><notations><slur type="stop" number="1"/><slur type="stop" number="2"/></notations></note><note><pitch><step>G</step><octave>4</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><backup><duration>12</duration></backup><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>4</duration><voice>2</voice><type>quarter</type></note><note><pitch><step>E</step><alter>-1</alter><octave>4</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note><note><pitch><step>G</step><octave>4</octave></pitch><duration>3</duration><voice>2</voice><type>eighth</type><dot/></note><note><pitch><step>F</step><octave>4</octave></pitch><duration>1</duration><voice>2</voice><type>16th</type></note><note><pitch><step>E</step><alter>-1</alter><octave>4</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note></measure><measure number="8"><note><pitch><step>F</step><octave>4</octave></pitch><duration>3</duration><voice>1</voice><type>eighth</type><dot/><notations><slur type="start" number="1"/><slur type="start" number="2"/></notations></note><note><pitch><step>G</step><octave>4</octave></pitch><duration>1</duration><voice>1</voice><type>16th</type><notations><slur type="stop" number="1"/><slur type="stop" number="2"/></notations></note><note><pitch><step>F</step><octave>4</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><note><pitch><step>D</step><octave>4</octave></pitch><duration>6</duration><voice>1</voice><type>quarter</type><dot/></note><backup><duration>12</duration></backup><note><pitch><step>D</step><octave>4</octave></pitch><duration>3</duration><voice>2</voice><type>eighth</type><dot/></note><note><pitch><step>E</step><alter>-1</alter><octave>4</octave></pitch><duration>1</duration><voice>2</voice><type>16th</type></note><note><pitch><step>D</step><octave>4</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>6</duration><voice>2</voice><type>quarter</type><dot/></note></measure><measure number="9"><direction><direction-type><dynamics><mf/></dynamics></direction-type></direction><note><pitch><step>C</step><octave>5</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note><note><pitch><step>C</step><octave>5</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><direction><direction-type><wedge type="crescendo" number="1"/></direction-type></direction><note><pitch><step>E</step><alter>-1</alter><octave>5</octave></pitch><duration>3</duration><voice>1</voice><type>eighth</type><dot/></note><note><pitch><step>C</step><octave>5</octave></pitch><duration>1</duration><voice>1</voice><type>16th</type></note><note><pitch><step>A</step><octave>4</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><direction><direction-type><wedge type="stop" number="1"/></direction-type></direction><backup><duration>12</duration></backup><note><pitch><step>E</step><alter>-1</alter><octave>4</octave></pitch><duration>4</duration><voice>2</voice><type>quarter</type></note><note><pitch><step>E</step><alter>-1</alter><octave>4</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note><note><pitch><step>E</step><alter>-1</alter><octave>4</octave></pitch><duration>3</duration><voice>2</voice><type>eighth</type><dot/></note><note><pitch><step>E</step><alter>-1</alter><octave>4</octave></pitch><duration>1</duration><voice>2</voice><type>16th</type></note><note><pitch><step>E</step><alter>-1</alter><octave>4</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note></measure><measure number="10"><direction><direction-type><dynamics><f/></dynamics></direction-type></direction><direction><direction-type><wedge type="diminuendo" number="1"/></direction-type></direction><note><pitch><step>B</step><alter>-1</alter><octave>4</octave></pitch><duration>6</duration><voice>1</voice><type>quarter</type><dot/><notations><slur type="start" number="1"/><slur type="start" number="2"/></notations></note><note><pitch><step>D</step><octave>5</octave></pitch><duration>6</duration><voice>1</voice><type>quarter</type><dot/><notations><slur type="stop" number="1"/><slur type="stop" number="2"/></notations></note><direction><direction-type><wedge type="stop" number="1"/></direction-type></direction><backup><duration>12</duration></backup><note><pitch><step>D</step><octave>4</octave></pitch><duration>6</duration><voice>2</voice><type>quarter</type><dot/><notations><slur type="start" number="1"/></notations></note><note><pitch><step>F</step><octave>4</octave></pitch><duration>6</duration><voice>2</voice><type>quarter</type><dot/><notations><slur type="stop" number="1"/></notations></note></measure><measure number="11"><direction><direction-type><dynamics><mp/></dynamics></direction-type></direction><note><pitch><step>B</step><alter>-1</alter><octave>4</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type><notations><slur type="start" number="1"/></notations></note><note><pitch><step>F</step><octave>4</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type><notations><slur type="stop" number="1"/></notations></note><note><pitch><step>D</step><octave>4</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><direction><direction-type><wedge type="diminuendo" number="1"/></direction-type></direction><note><pitch><step>F</step><octave>4</octave></pitch><duration>3</duration><voice>1</voice><type>eighth</type><dot/></note><note><pitch><step>E</step><alter>-1</alter><octave>4</octave></pitch><duration>1</duration><voice>1</voice><type>16th</type></note><note><pitch><step>C</step><octave>4</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><direction><direction-type><wedge type="stop" number="1"/></direction-type></direction><backup><duration>12</duration></backup><note><pitch><step>D</step><octave>4</octave></pitch><duration>4</duration><voice>2</voice><type>quarter</type></note><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note><note><pitch><step>A</step><octave>3</octave></pitch><duration>3</duration><voice>2</voice><type>eighth</type><dot/></note><note><pitch><step>A</step><octave>3</octave></pitch><duration>1</duration><voice>2</voice><type>16th</type></note><note><pitch><step>A</step><octave>3</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note></measure><measure number="12"><direction><direction-type><dynamics><pp/></dynamics></direction-type></direction><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>12</duration><voice>1</voice><type>half</type><dot/></note><backup><duration>12</duration></backup><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>12</duration><voice>2</voice><type>half</type><dot/></note><barline><bar-style>light-heavy</bar-style></barline></measure></part><part id="P2"><measure number="1"><attributes><divisions>4</divisions><key><fifths>-2</fifths></key><time><beats>6</beats><beat-type>8</beat-type></time><clef><sign>F</sign><line>4</line></clef></attributes><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><note><pitch><step>F</step><octave>3</octave></pitch><duration>6</duration><voice>1</voice><type>quarter</type><dot/></note><backup><duration>12</duration></backup><note><pitch><step>B</step><alter>-1</alter><octave>2</octave></pitch><duration>4</duration><voice>2</voice><type>quarter</type></note><note><pitch><step>B</step><alter>-1</alter><octave>2</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note><note><pitch><step>B</step><alter>-1</alter><octave>2</octave></pitch><duration>6</duration><voice>2</voice><type>quarter</type><dot/></note></measure><measure number="2"><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>3</duration><tie type="start"/><voice>1</voice><type>eighth</type><dot/><notations><tied type="start"/></notations></note><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>1</duration><tie type="stop"/><voice>1</voice><type>16th</type><notations><tied type="stop"/></notations></note><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><note><pitch><step>F</step><octave>3</octave></pitch><duration>6</duration><voice>1</voice><type>quarter</type><dot/></note><backup><duration>12</duration></backup><note><pitch><step>B</step><alter>-1</alter><octave>2</octave></pitch><duration>3</duration><voice>2</voice><type>eighth</type><dot/><notations><slur type="start" number="1"/></notations></note><note><pitch><step>B</step><alter>-1</alter><octave>2</octave></pitch><duration>1</duration><voice>2</voice><type>16th</type><notations><slur type="stop" number="1"/></notations></note><note><pitch><step>B</step><alter>-1</alter><octave>2</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note><note><pitch><step>B</step><alter>-1</alter><octave>2</octave></pitch><duration>6</duration><voice>2</voice><type>quarter</type><dot/></note></measure><measure number="3"><note><pitch><step>A</step><octave>3</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note><note><pitch><step>A</step><octave>3</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><note><pitch><step>C</step><octave>4</octave></pitch><duration>6</duration><voice>1</voice><type>quarter</type><dot/></note><backup><duration>12</duration></backup><note><pitch><step>F</step><octave>3</octave></pitch><duration>4</duration><voice>2</voice><type>quarter</type></note><note><pitch><step>F</step><octave>3</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note><note><pitch><step>F</step><octave>3</octave></pitch><duration>6</duration><voice>2</voice><type>quarter</type><dot/></note></measure><measure number="4"><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note><note><pitch><step>F</step><octave>3</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>6</duration><voice>1</voice><type>quarter</type><dot/></note><backup><duration>12</duration></backup><note><pitch><step>B</step><alter>-1</alter><octave>2</octave></pitch><duration>4</duration><voice>2</voice><type>quarter</type></note><note><pitch><step>B</step><alter>-1</alter><octave>2</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note><note><pitch><step>B</step><alter>-1</alter><octave>2</octave></pitch><duration>6</duration><voice>2</voice><type>quarter</type><dot/></note></measure><measure number="5"><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><note><pitch><step>G</step><octave>3</octave></pitch><duration>3</duration><voice>1</voice><type>eighth</type><dot/><notations><slur type="start" number="1"/></notations></note><note><pitch><step>A</step><octave>3</octave></pitch><duration>1</duration><voice>1</voice><type>16th</type><notations><slur type="stop" number="1"/></notations></note><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><backup><duration>12</duration></backup><note><pitch><step>E</step><alter>-1</alter><octave>3</octave></pitch><duration>4</duration><voice>2</voice><type>quarter</type></note><note><pitch><step>E</step><alter>-1</alter><octave>3</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note><note><pitch><step>E</step><alter>-1</alter><octave>3</octave></pitch><duration>3</duration><voice>2</voice><type>eighth</type><dot/><notations><slur type="start" number="1"/></notations></note><note><pitch><step>E</step><alter>-1</alter><octave>3</octave></pitch><duration>1</duration><voice>2</voice><type>16th</type><notations><slur type="stop" number="1"/></notations></note><note><pitch><step>E</step><alter>-1</alter><octave>3</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note></measure><measure number="6"><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>3</duration><voice>1</voice><type>eighth</type><dot/></note><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>1</duration><voice>1</voice><type>16th</type></note><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><note><pitch><step>F</step><octave>3</octave></pitch><duration>6</duration><voice>1</voice><type>quarter</type><dot/></note><backup><duration>12</duration></backup><note><pitch><step>B</step><alter>-1</alter><octave>2</octave></pitch><duration>3</duration><voice>2</voice><type>eighth</type><dot/></note><note><pitch><step>B</step><alter>-1</alter><octave>2</octave></pitch><duration>1</duration><voice>2</voice><type>16th</type></note><note><pitch><step>B</step><alter>-1</alter><octave>2</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note><note><pitch><step>B</step><alter>-1</alter><octave>2</octave></pitch><duration>6</duration><voice>2</voice><type>quarter</type><dot/></note></measure><measure number="7"><note><pitch><step>E</step><alter>-1</alter><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note><note><pitch><step>E</step><alter>-1</alter><octave>4</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><note><pitch><step>E</step><alter>-1</alter><octave>4</octave></pitch><duration>3</duration><voice>1</voice><type>eighth</type><dot/><notations><slur type="start" number="1"/></notations></note><note><pitch><step>E</step><alter>-1</alter><octave>4</octave></pitch><duration>1</duration><voice>1</voice><type>16th</type><notations><slur type="stop" number="1"/></notations></note><note><pitch><step>E</step><alter>-1</alter><octave>4</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><backup><duration>12</duration></backup><note><pitch><step>G</step><octave>3</octave></pitch><duration>4</duration><voice>2</voice><type>quarter</type></note><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note><note><pitch><step>G</step><octave>3</octave></pitch><duration>3</duration><voice>2</voice><type>eighth</type><dot/><notations><slur type="start" number="1"/></notations></note><note><pitch><step>A</step><octave>3</octave></pitch><duration>1</duration><voice>2</voice><type>16th</type><notations><slur type="stop" number="1"/></notations></note><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note></measure><measure number="8"><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>3</duration><tie type="start"/><voice>1</voice><type>eighth</type><dot/><notations><tied type="start"/></notations></note><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>1</duration><tie type="stop"/><voice>1</voice><type>16th</type><notations><tied type="stop"/></notations></note><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>6</duration><voice>1</voice><type>quarter</type><dot/></note><backup><duration>12</duration></backup><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>3</duration><voice>2</voice><type>eighth</type><dot/><notations><slur type="start" number="1"/></notations></note><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>1</duration><voice>2</voice><type>16th</type><notations><slur type="stop" number="1"/></notations></note><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note><note><pitch><step>F</step><octave>3</octave></pitch><duration>6</duration><voice>2</voice><type>quarter</type><dot/></note></measure><measure number="9"><note><pitch><step>A</step><octave>3</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note><note><pitch><step>A</step><octave>3</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><note><pitch><step>C</step><octave>4</octave></pitch><duration>3</duration><voice>1</voice><type>eighth</type><dot/></note><note><pitch><step>A</step><octave>3</octave></pitch><duration>1</duration><voice>1</voice><type>16th</type></note><note><pitch><step>F</step><octave>3</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><backup><duration>12</duration></backup><note><pitch><step>F</step><octave>3</octave></pitch><duration>4</duration><voice>2</voice><type>quarter</type></note><note><pitch><step>F</step><octave>3</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note><note><pitch><step>F</step><octave>3</octave></pitch><duration>3</duration><voice>2</voice><type>eighth</type><dot/></note><note><pitch><step>F</step><octave>3</octave></pitch><duration>1</duration><voice>2</voice><type>16th</type></note><note><pitch><step>F</step><octave>3</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note></measure><measure number="10"><note><pitch><step>F</step><octave>3</octave></pitch><duration>6</duration><voice>1</voice><type>quarter</type><dot/><notations><slur type="start" number="1"/></notations></note><note><pitch><step>B</step><alter>-1</alter><octave>3</octave></pitch><duration>6</duration><voice>1</voice><type>quarter</type><dot/><notations><slur type="stop" number="1"/></notations></note><backup><duration>12</duration></backup><note><pitch><step>B</step><alter>-1</alter><octave>2</octave></pitch><duration>6</duration><voice>2</voice><type>quarter</type><dot/><notations><slur type="start" number="1"/></notations></note><note><pitch><step>B</step><alter>-1</alter><octave>2</octave></pitch><duration>6</duration><voice>2</voice><type>quarter</type><dot/><notations><slur type="stop" number="1"/></notations></note></measure><measure number="11"><direction><direction-type><dynamics><mp/></dynamics></direction-type></direction><note><pitch><step>F</step><octave>3</octave></pitch><duration>4</duration><voice>1</voice><type>quarter</type></note><note><pitch><step>F</step><octave>3</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><direction><direction-type><wedge type="diminuendo" number="1"/></direction-type></direction><note><pitch><step>F</step><octave>3</octave></pitch><duration>3</duration><voice>1</voice><type>eighth</type><dot/></note><note><pitch><step>F</step><octave>3</octave></pitch><duration>1</duration><voice>1</voice><type>16th</type></note><note><pitch><step>E</step><alter>-1</alter><octave>3</octave></pitch><duration>2</duration><voice>1</voice><type>eighth</type></note><direction><direction-type><wedge type="stop" number="1"/></direction-type></direction><backup><duration>12</duration></backup><note><pitch><step>F</step><octave>3</octave></pitch><duration>4</duration><voice>2</voice><type>quarter</type></note><note><pitch><step>F</step><octave>3</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note><note><pitch><step>F</step><octave>2</octave></pitch><duration>3</duration><voice>2</voice><type>eighth</type><dot/></note><note><pitch><step>F</step><octave>2</octave></pitch><duration>1</duration><voice>2</voice><type>16th</type></note><note><pitch><step>F</step><octave>2</octave></pitch><duration>2</duration><voice>2</voice><type>eighth</type></note></measure><measure number="12"><direction><direction-type><dynamics><pp/></dynamics></direction-type></direction><note><pitch><step>D</step><octave>3</octave></pitch><duration>12</duration><voice>1</voice><type>half</type><dot/></note><backup><duration>12</duration></backup><note><pitch><step>B</step><alter>-1</alter><octave>2</octave></pitch><duration>12</duration><voice>2</voice><type>half</type><dot/></note><barline><bar-style>light-heavy</bar-style></barline></measure></part></score-partwise></script>
+<script type="application/json" id="example-lyrics">{"punctuation":[[3,",",1.5],[6,"!",4.5],[9,",",7.5],[18,";",16.5],[20.5,",",20.25],[24,",",22.5],[30,",",27],[36,".",33]],"syllables":[0,1,1.5,3,4,4.5,6,7,7.5,9,10,10.5,12,13,13.5,14.5,15,15.75,16,16.5,18,19,19.5,20.25,20.5,21,21.75,22,22.5,24,25,25.5,26.25,26.5,27,30,31,31.5,32.25,32.5,33]}</script>
+<script>
+/* Notencode core (JavaScript) - an exact port of notencode.py.
+   Runs in the browser (DOMParser) and in Node (with @xmldom/xmldom) - Node is only used for tests. */
+(function (root) {
+  'use strict';
+  const VERSION = '2.1';
+  const STEP_SEMITONES = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  const ALTER_TEXT = { '-2': 'bb', '-1': 'b', '0': '', '1': '#', '2': '##' };
+  const ACCIDENTAL_TEXT = {
+    'sharp': '#', 'flat': 'b', 'natural': 'n', 'double-sharp': '##', 'sharp-sharp': '##',
+    'flat-flat': 'bb', 'double-flat': 'bb', 'natural-sharp': '#', 'natural-flat': 'b',
+  };
+  const UPPER = 'upper', LOWER = 'lower';
+  const HAND_TEXT = { upper: 'right hand', lower: 'left hand' };
+
+  class NotencodeError extends Error {}
+
+  // ------------------------------------------------------------------ fractions
+  function gcd(a, b) { a = Math.abs(a); b = Math.abs(b); while (b) { [a, b] = [b, a % b]; } return a || 1; }
+  class Fr {
+    constructor(n, d = 1) {
+      if (d < 0) { n = -n; d = -d; }
+      const g = gcd(n, d); this.n = n / g; this.d = d / g;
+    }
+    add(o) { return new Fr(this.n * o.d + o.n * this.d, this.d * o.d); }
+    sub(o) { return new Fr(this.n * o.d - o.n * this.d, this.d * o.d); }
+    mul(o) { return new Fr(this.n * o.n, this.d * o.d); }
+    div(o) { return new Fr(this.n * o.d, this.d * o.n); }
+    cmp(o) { const x = this.n * o.d - o.n * this.d; return x < 0 ? -1 : x > 0 ? 1 : 0; }
+    eq(o) { return this.n === o.n && this.d === o.d; }
+    lt(o) { return this.cmp(o) < 0; }
+    gt(o) { return this.cmp(o) > 0; }
+    isZero() { return this.n === 0; }
+    key() { return this.n + '/' + this.d; }
+    num() { return this.n / this.d; }
+  }
+  const F0 = new Fr(0);
+  const fint = (i) => new Fr(i);
+  const fmax = (a, b) => (a.cmp(b) >= 0 ? a : b);
+  function frParse(text) {               // like Python Fraction("1.5")
+    const t = String(text).trim();
+    const m = /^([+-]?)(\d*)(?:\.(\d*))?$/.exec(t);
+    if (!m || (m[2] === '' && (m[3] || '') === '')) throw new NotencodeError(`Invalid number ${JSON.stringify(t)} in the file.`);
+    const frac = m[3] || '';
+    let n = parseInt((m[2] || '0') + frac, 10); const d = Math.pow(10, frac.length);
+    if (m[1] === '-') n = -n;
+    return new Fr(n, d);
+  }
+  const _frac = (text) => (text && text.trim() ? frParse(text) : F0);
+  const _q = (x) => (x.d === 1 ? String(x.n) : `${x.n}/${x.d}`);
+  function pyRepr(s) {                      // like Python's repr() for strings (control characters as \n, \t ...)
+    const ctl = (t) => t.replace(/[\x00-\x1f\x7f]/g, (c) => ({ '\n': '\\n', '\r': '\\r', '\t': '\\t' }[c] || '\\x' + c.charCodeAt(0).toString(16).padStart(2, '0')));
+    if (s.includes("'") && !s.includes('"')) return '"' + ctl(s.replace(/\\/g, '\\\\')) + '"';
+    return "'" + ctl(s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")) + "'";
+  }
+  const pyInt = (t) => (t !== null && /^\s*[+-]?\d+\s*$/.test(t) ? parseInt(t, 10) : null);
+
+  // ------------------------------------------------------------------ DOM helpers
+  const lname = (el) => el.localName || String(el.nodeName).replace(/^.*:/, '');
+  function kids(el, tag) {
+    const out = [];
+    for (let c = el.firstChild; c; c = c.nextSibling) if (c.nodeType === 1 && (!tag || lname(c) === tag)) out.push(c);
+    return out;
+  }
+  const kid = (el, tag) => kids(el, tag)[0] || null;
+  function kidText(el, tag) { const k = kid(el, tag); return k ? (k.textContent || '') : null; }
+  const path = (el, a, b) => kids(el, a).flatMap((x) => kids(x, b));
+  function desc(el, tag) {                // all descendants with this name
+    const out = [];
+    (function walk(e) { for (let c = e.firstChild; c; c = c.nextSibling) if (c.nodeType === 1) { if (lname(c) === tag) out.push(c); walk(c); } })(el);
+    return out;
+  }
+
+  // ------------------------------------------------------------------ reading the score
+  function readScore(doc) {
+    const rootEl = doc.documentElement;
+    if (!rootEl || lname(rootEl) === 'parsererror' || doc.getElementsByTagName('parsererror').length) {
+      throw new NotencodeError('The file is not valid XML.');
+    }
+    const kind = lname(rootEl);
+    const names = new Map();
+    for (const sp of path(rootEl, 'part-list', 'score-part')) names.set(sp.getAttribute('id'), (kidText(sp, 'part-name') || '').trim());
+    const parts = [];
+    if (kind === 'score-partwise') {
+      for (const p of kids(rootEl, 'part')) {
+        parts.push({ id: p.getAttribute('id') || '?', measures: kids(p, 'measure').map((m) => ({ el: m, number: m.getAttribute('number'), implicit: m.getAttribute('implicit') })) });
+      }
+    } else if (kind === 'score-timewise') {
+      const byId = new Map();
+      for (const m of kids(rootEl, 'measure')) {
+        for (const p of kids(m, 'part')) {
+          const pid = p.getAttribute('id') || '?';
+          if (!byId.has(pid)) { byId.set(pid, { id: pid, measures: [] }); parts.push(byId.get(pid)); }
+          byId.get(pid).measures.push({ el: p, number: m.getAttribute('number'), implicit: m.getAttribute('implicit') });
+        }
+      }
+    } else {
+      throw new NotencodeError(`Unknown root element <${kind}>. Expected MusicXML (score-partwise).`);
+    }
+    const totalNotes = desc(rootEl, 'note').length;
+    return { names, parts, totalNotes };
+  }
+
+  function findStaves(score) {
+    const staves = [];
+    for (const part of score.parts) {
+      let n = 1;
+      for (const m of part.measures) {
+        for (const s of desc(m.el, 'staves')) { const v = pyInt(s.textContent); if (v !== null) n = Math.max(n, v); }
+        for (const s of desc(m.el, 'staff')) { const v = pyInt(s.textContent); if (v !== null) n = Math.max(n, v); }
+      }
+      for (let i = 1; i <= n; i++) staves.push([part.id, i, score.names.get(part.id) || '']);
+    }
+    return staves;
+  }
+
+  function stavesWithNotes(score) {         // staves with at least one pitched note (rests do not count)
+    const used = new Set();
+    for (const part of score.parts) {
+      for (const m of part.measures) {
+        for (const n of desc(m.el, 'note')) {
+          if (!kid(n, 'pitch') && !kid(n, 'unpitched')) continue;
+          const st = pyInt(kidText(n, 'staff') || '1');
+          used.add(`${part.id}|${st === null ? 1 : st}`);
+        }
+      }
+    }
+    return used;
+  }
+
+  function dropEmptyStaves(score, staves, rep) {   // more than two staves, but at most two with notes: skip the empty ones
+    if (staves.length <= 2) return staves;
+    const used = stavesWithNotes(score);
+    const keep = staves.filter(([p, s]) => used.has(`${p}|${s}`));
+    if (keep.length < 1 || keep.length > 2) return staves;
+    for (const [p, s, name] of staves) {
+      if (!used.has(`${p}|${s}`)) rep.info.push(`Staff ${p}/${s} (${pyRepr(name)}) has no notes, only rests - skipped.`);
+    }
+    return keep;
+  }
+
+  function parseStaffSpec(spec, staves) {
+    const out = [];
+    for (const item of spec.split(',').map((s) => s.trim()).filter(Boolean)) {
+      if (item.includes('/')) {
+        const [pid, nr] = [item.slice(0, item.indexOf('/')), item.slice(item.indexOf('/') + 1)];
+        const st = pyInt(nr);
+        if (st === null || !staves.some(([p, s]) => p === pid && s === st)) throw new NotencodeError(`Staff ${item} does not exist in the file.`);
+        out.push([pid, st]);
+      } else {
+        const keys = staves.filter(([p]) => p === item).map(([p, s]) => [p, s]);
+        if (!keys.length) throw new NotencodeError(`Part ${item} does not exist in the file.`);
+        out.push(...keys);
+      }
+    }
+    return out;
+  }
+
+  function resolveHands(staves, upper, lower, rep) {
+    const listing = staves.map(([p, s, name]) => `   ${p}/${s}  ${pyRepr(name)}`).join('\n');
+    const hands = new Map();
+    if (upper || lower) {
+      if (!(upper && lower)) throw new NotencodeError('Please give both --upper AND --lower.');
+      for (const [p, s] of parseStaffSpec(upper, staves)) hands.set(`${p}|${s}`, UPPER);
+      for (const [p, s] of parseStaffSpec(lower, staves)) {
+        if (hands.has(`${p}|${s}`)) throw new NotencodeError(`Staff ${p}/${s} is given as both upper and lower.`);
+        hands.set(`${p}|${s}`, LOWER);
+      }
+      for (const [p, s, name] of staves) {
+        if (!hands.has(`${p}|${s}`)) rep.info.push(`Staff ${p}/${s} (${pyRepr(name)}) is not assigned to a hand (as chosen) and is not written.`);
+      }
+      return hands;
+    }
+    if (staves.length === 1) {
+      rep.warnings.push('The file has only one staff - everything is written as the upper staff (CAPITALS).');
+      hands.set(`${staves[0][0]}|${staves[0][1]}`, UPPER);
+      return hands;
+    }
+    if (staves.length === 2) {
+      hands.set(`${staves[0][0]}|${staves[0][1]}`, UPPER);
+      hands.set(`${staves[1][0]}|${staves[1][1]}`, LOWER);
+      return hands;
+    }
+    const err = new NotencodeError(
+      'The file has more than two staves. I will not guess which ones belong to the piano hands.\n' +
+      `Staves found:\n${listing}\n` +
+      'Please choose, e.g.:  --upper P2/1 --lower P2/2');
+    err.staves = staves;
+    throw err;
+  }
+
+  // ------------------------------------------------------------------ timeline
+  function timeSig(attr) {
+    const t = kid(attr, 'time');
+    if (!t) return null;
+    const bt = kidText(t, 'beats'), tt = kidText(t, 'beat-type');
+    if (!bt || !tt) return null;
+    const parts = bt.split('+').map(pyInt);
+    const beatType = pyInt(tt);
+    if (parts.some((x) => x === null) || beatType === null) return null;
+    const beats = parts.reduce((a, b) => a + b, 0);
+    return [new Fr(beats * 4, beatType), beatType, `${bt}/${tt}`];
+  }
+
+  function parsePart(part, hands, rep, orderStart, marks) {   // marks: fermatas, breath marks, double bars, lyrics (display only)
+    const pid = part.id;
+    let divisions = null, expected = null, beatType = 4, timeText = '?';
+    const notes = [], measures = [];
+    let absStart = F0, order = orderStart;
+    part.measures.forEach((mm, midx) => {
+      const measure = mm.el;
+      const label = mm.number !== null && mm.number !== undefined ? mm.number : String(midx + 1);
+      const implicit = mm.implicit === 'yes';
+      let cursor = F0, maxCursor = F0, lastOnset = F0, hasContent = false;
+      const voiceEnd = new Map();
+      for (const child of kids(measure)) {
+        const tag = lname(child);
+        if (tag === 'note' || tag === 'backup' || tag === 'forward') hasContent = true;
+        if (tag === 'attributes') {
+          const d = kidText(child, 'divisions');
+          if (d) divisions = _frac(d);
+          const ts = timeSig(child);
+          if (ts) [expected, beatType, timeText] = ts;
+          if (kid(child, 'transpose')) rep.warnings.push(`Part ${pid}, measure ${label}: <transpose> found - pitches in the file may be written transposed. Please check.`);
+        } else if (tag === 'backup' || tag === 'forward') {
+          if (divisions === null) throw new NotencodeError(`Part ${pid}, measure ${label}: <${tag}> before <divisions>.`);
+          const d = _frac(kidText(child, 'duration')).div(divisions);
+          if (tag === 'backup') {
+            cursor = cursor.sub(d);
+            if (cursor.lt(F0)) { rep.warnings.push(`Part ${pid}, measure ${label}: <backup> jumps before the start of the measure - set to 0.`); cursor = F0; }
+          } else { cursor = cursor.add(d); maxCursor = fmax(maxCursor, cursor); }
+        } else if (tag === 'barline') {
+          const style = (kidText(child, 'bar-style') || '').trim();
+          if (marks && (kid(child, 'repeat') || ['light-light', 'light-heavy', 'heavy-light', 'heavy-heavy'].includes(style))) {
+            const loc = child.getAttribute('location') || (hasContent ? 'right' : 'left');   // not given: a barline before the notes = left
+            marks.push({ kind: 'barline', midx, atStart: loc === 'left' });
+          }
+          if (kid(child, 'repeat') || kid(child, 'ending')) rep.info.push(`Measure ${label}: repeat sign/volta - the code follows the printed score, repeats are NOT written out.`);
+        } else if (tag === 'direction') {
+          if (desc(child, 'octave-shift').length) rep.info.push(`Part ${pid}, measure ${label}: octave sign (8va/8vb) - the code shows the sounding octave, not the printed note position.`);
+        } else if (tag === 'note') {
+          order += 1;
+          if (divisions === null) throw new NotencodeError(`Part ${pid}, measure ${label}: note before <divisions>.`);
+          const isChord = !!kid(child, 'chord'), isGrace = !!kid(child, 'grace'), isCue = !!kid(child, 'cue'), isRest = !!kid(child, 'rest');
+          const durTxt = kidText(child, 'duration');
+          if (!isGrace && durTxt === null) rep.warnings.push(`Part ${pid}, measure ${label}: note without <duration> - duration 0 assumed.`);
+          const dur = isGrace ? F0 : _frac(durTxt).div(divisions);
+          let onset;
+          if (isChord) onset = lastOnset; else { onset = cursor; lastOnset = cursor; }
+          const voice = (kidText(child, 'voice') || '1').trim();
+          const st = pyInt(kidText(child, 'staff') || '1');
+          const staff = st === null ? 1 : st;
+          if (!isChord && !isGrace) { cursor = cursor.add(dur); maxCursor = fmax(maxCursor, cursor); }
+          if (!isGrace) voiceEnd.set(voice, fmax(voiceEnd.has(voice) ? voiceEnd.get(voice) : F0, onset.add(dur)));
+          if (marks && !isGrace) {
+            if (path(child, 'notations', 'fermata').length) marks.push({ kind: 'fermata', midx, onset: onset.num(), end: onset.add(dur).num() });
+            const art = path(child, 'notations', 'articulations');
+            if (art.some((a) => kid(a, 'breath-mark') || kid(a, 'caesura'))) marks.push({ kind: 'breath', midx, onset: onset.add(dur).num(), end: onset.add(dur).num() });
+            if (!isRest && !isChord) {             // lyrics: punctuation at the end of a syllable marks the end of a line
+              for (const ly of kids(child, 'lyric')) {
+                const txt = kids(ly, 'text').map((t) => t.textContent || '').join('');
+                if (txt) marks.push({ kind: 'syllable', midx, onset: onset.num(), end: onset.add(dur).num(), text: txt, staff, pid, number: ly.getAttribute('number') || '1' });
+              }
+            }
+          }
+
+          if (isRest) { rep.counts.rests++; continue; }
+          if (isGrace) { rep.counts.grace_notes++; rep.check.push(`Measure ${label}: grace note skipped - it has no duration of its own.`); continue; }
+          if (isCue) { rep.counts.cue_notes++; rep.info.push(`Measure ${label}: cue note skipped - it is not played.`); continue; }
+          const pitch = kid(child, 'pitch');
+          if (!pitch) { rep.counts.unpitched++; rep.warnings.push(`Part ${pid}, measure ${label}: note without pitch (e.g. percussion) skipped.`); continue; }
+          const hand = hands.get(`${pid}|${staff}`);
+          if (!hand) { rep.counts.unassigned++; continue; }
+          if (child.getAttribute('print-object') === 'no') rep.check.push(`Measure ${label}: invisible note (print-object=no) is written - it is not in the printed score.`);
+
+          const step = (kidText(pitch, 'step') || '').trim().toUpperCase();
+          if (!(step in STEP_SEMITONES)) throw new NotencodeError(`Part ${pid}, measure ${label}: unknown note name ${pyRepr(step)}.`);
+          const alter = _frac(kidText(pitch, 'alter'));
+          const octave = pyInt(kidText(pitch, 'octave') || '');
+          if (octave === null) throw new NotencodeError(`Part ${pid}, measure ${label}: note without a valid octave.`);
+          const accEl = kid(child, 'accidental');
+          const accText = accEl ? accEl.textContent : '';
+          const accidental = accEl && accText ? accText.trim() : null;
+          const tieTypes = new Set(kids(child, 'tie').map((t) => t.getAttribute('type')).concat(path(child, 'notations', 'tied').map((t) => t.getAttribute('type'))));
+          const slurStarts = [], slurStops = [];
+          for (const s of path(child, 'notations', 'slur')) {
+            const num = s.getAttribute('number') || '1';
+            if (s.getAttribute('type') === 'start') slurStarts.push(num); else if (s.getAttribute('type') === 'stop') slurStops.push(num);
+          }
+          const n = {
+            partId: pid, staff, hand, measureIdx: midx, onset, duration: dur, absOnset: absStart.add(onset), voice,
+            step, alter, octave, accidental,
+            tieStart: tieTypes.has('start') || tieTypes.has('continue'),
+            tieStop: tieTypes.has('stop') || tieTypes.has('continue'),
+            slurStarts, slurStops, docOrder: order, continuation: false, heldBySlur: false, duplicateOf: null,
+          };
+          n.midi = fint((octave + 1) * 12 + STEP_SEMITONES[step]).add(alter);
+          n.end = onset.add(dur); n.absEnd = n.absOnset.add(dur);
+          notes.push(n);
+        }
+      }
+      let length = maxCursor;
+      if (length.isZero() && expected) length = expected;
+      if (expected !== null) {
+        for (const [v, e] of voiceEnd) {
+          if (e.gt(expected)) rep.warnings.push(`Part ${pid}, measure ${label}: voice ${v} is longer than the time signature ${timeText} (${_q(e)} instead of ${_q(expected)} quarters).`);
+        }
+      }
+      measures.push({ idx: midx, label, length, expected, beatType, timeText, implicit });
+      absStart = absStart.add(length);
+    });
+    return [notes, measures, order];
+  }
+
+  // ------------------------------------------------------------------ names
+  function plain(n) {
+    const a = n.alter.d === 1 && (String(n.alter.n) in ALTER_TEXT) ? ALTER_TEXT[String(n.alter.n)] : '?';
+    return `${n.step}${a}${n.octave}`;
+  }
+  function pyFloatG(x) { // Python f"{x:g}" for small values
+    return Number(x.toPrecision(6)).toString();
+  }
+  function noteName(n, mode) {
+    let acc;
+    if (mode === 'written') {
+      acc = n.accidental === null ? '' : (n.accidental in ACCIDENTAL_TEXT ? ACCIDENTAL_TEXT[n.accidental] : `[${n.accidental}]`);
+    } else {
+      acc = n.alter.d === 1 && (String(n.alter.n) in ALTER_TEXT) ? ALTER_TEXT[String(n.alter.n)] : `[alter=${pyFloatG(n.alter.num())}]`;
+    }
+    let name = n.step + acc;
+    if (n.hand === LOWER) name = name.toLowerCase();
+    return `${name}${n.octave}`;
+  }
+  function beatLabel(onset, beatType) {
+    const pos = onset.div(new Fr(4, beatType)).add(fint(1));
+    if (pos.d === 1) return String(pos.n);
+    let d = pos.d;
+    while (d % 2 === 0) d /= 2;
+    while (d % 5 === 0) d /= 5;
+    const whole = Math.floor(pos.n / pos.d);
+    if (d === 1) {
+      let rest = pos.sub(fint(whole)), digits = '';
+      while (!rest.isZero()) { rest = rest.mul(fint(10)); const dg = Math.floor(rest.n / rest.d); digits += String(dg); rest = rest.sub(fint(dg)); }
+      return `${whole}.${digits}`;
+    }
+    const rest = pos.sub(fint(whole));
+    return `${whole} ${rest.n}/${rest.d}`;
+  }
+  const sortKey = (a, b) => (b.midi.cmp(a.midi)) || ((a.hand === UPPER ? 0 : 1) - (b.hand === UPPER ? 0 : 1)) || (a.docOrder - b.docOrder);
+
+  // ------------------------------------------------------------------ ties & slurs
+  function groupBy(arr, keyFn) { const m = new Map(); for (const x of arr) { const k = keyFn(x); if (!m.has(k)) m.set(k, []); m.get(k).push(x); } return m; }
+
+  function resolveTies(notes, labels, rep) {
+    for (const pnotes of groupBy(notes, (n) => n.partId).values()) {
+      const open = new Map();   // "staff|midi" -> [notes]
+      const sorted = pnotes.slice().sort((a, b) => a.absOnset.cmp(b.absOnset) || a.docOrder - b.docOrder);
+      for (const n of sorted) {
+        if (n.tieStop) {
+          let cands = open.get(`${n.staff}|${n.midi.key()}`) || [];
+          let cross = false;
+          if (!cands.length) {
+            for (const [k, lst] of open) { if (k.split('|')[1] === n.midi.key() && lst.length) { cands = lst; cross = true; break; } }
+          }
+          const exact = cands.filter((c) => c.absEnd.eq(n.absOnset));
+          let start = null;
+          if (exact.length) start = exact[0];
+          else if (cands.length) {
+            start = cands[0];
+            rep.warnings.push(`Measure ${labels[n.measureIdx]}: tie on ${plain(n)} has a gap (start ends at ${_q(start.absEnd)}, continuation begins at ${_q(n.absOnset)}).`);
+          }
+          if (start) {
+            cands.splice(cands.indexOf(start), 1);
+            n.continuation = true;
+            rep.counts.tie_continuations++;
+            if (cross) rep.check.push(`Measure ${labels[n.measureIdx]}: tie on ${plain(n)} changes staff.`);
+          } else {
+            const msg = `Measure ${labels[n.measureIdx]}: tie end on ${plain(n)} without a matching start - counted as a new attack.`;
+            rep.check.push(msg); addTo(rep.flags, `${n.measureIdx}|${n.onset.key()}`, msg);
+          }
+        }
+        if (n.tieStart) {
+          const k = `${n.staff}|${n.midi.key()}`;
+          if (!open.has(k)) open.set(k, []);
+          open.get(k).push(n);
+        }
+      }
+      for (const lst of open.values()) for (const n of lst) rep.info.push(`Measure ${labels[n.measureIdx]}: tie on ${plain(n)} has no end in the file.`);
+    }
+  }
+
+  function addTo(map, k, msg) { if (!map.has(k)) map.set(k, []); map.get(k).push(msg); }
+
+  function checkSamePitchSlurs(notes, labels, beatTypes, mode, rep, nameMode) {
+    for (const pnotes of groupBy(notes, (n) => n.partId).values()) {
+      const active = [];          // [voice, number]
+      const prevEvent = new Map();
+      const events = new Map();
+      for (const n of pnotes) {
+        const k = `${n.absOnset.key()}#${n.voice}`;
+        if (!events.has(k)) events.set(k, { t: n.absOnset, voice: n.voice, notes: [] });
+        events.get(k).notes.push(n);
+      }
+      const evs = [...events.values()].sort((a, b) => a.t.cmp(b.t) || (Math.min(...a.notes.map((x) => x.docOrder)) - Math.min(...b.notes.map((x) => x.docOrder))));
+      for (const ev of evs) {
+        const voice = ev.voice;
+        const covered = active.some(([v]) => v === voice);
+        const prev = prevEvent.get(voice);
+        if (covered && prev && prev.end.eq(ev.t)) {
+          const prevMidis = new Set(prev.notes.map((p) => p.midi.key()));
+          for (const n of ev.notes) {
+            if (prevMidis.has(n.midi.key()) && !n.continuation) {
+              const where = `Measure ${labels[n.measureIdx]}, beat ${beatLabel(n.onset, beatTypes[n.measureIdx])}`;
+              let msg;
+              if (mode === 'hold') {
+                n.heldBySlur = true; rep.counts.same_pitch_slur_held++;
+                msg = `${where}: ${noteName(n, nameMode)} - the slur between equal pitches is stored as a phrasing slur but looks like a tie -> held, NOT struck again.`;
+              } else {
+                rep.counts.same_pitch_slur_restruck++;
+                msg = `${where}: ${noteName(n, nameMode)} - the slur between equal pitches is a phrasing slur in the file (not a tie) -> written as a NEW attack. In the printed score it looks like a tie.`;
+              }
+              rep.check.push(msg); addTo(rep.flags, `${n.measureIdx}|${n.onset.key()}`, msg);
+            }
+          }
+        }
+        for (const n of ev.notes) {
+          for (const num of n.slurStops) {
+            const i = active.findIndex(([v, x]) => v === voice && x === num);
+            if (i >= 0) active.splice(i, 1);
+            else { const j = active.findIndex(([, x]) => x === num); if (j >= 0) active.splice(j, 1); }
+          }
+        }
+        for (const n of ev.notes) for (const num of n.slurStarts) { if (!active.some(([v, x]) => v === voice && x === num)) active.push([voice, num]); }
+        let end = ev.notes[0].absEnd; for (const x of ev.notes) end = fmax(end, x.absEnd);
+        prevEvent.set(voice, { end, notes: ev.notes });
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------ hands
+  function heldMidis(notes, midx, t, hand) {
+    return notes.filter((n) => n.hand === hand && n.measureIdx === midx && n.duplicateOf === null &&
+      ((n.onset.lt(t) && t.lt(n.end)) || ((n.continuation || n.heldBySlur) && n.onset.eq(t)))).map((n) => n.midi);
+  }
+
+  function assignPlayableHands(midx, t, uniq, allNotes, where, rep, nameMode, flagKey) {
+    const byMidi = new Map();
+    for (const n of uniq) { const k = n.midi.key(); if (!byMidi.has(k)) byMidi.set(k, []); byMidi.get(k).push(n); }
+    const midiKeys = [...byMidi.keys()].sort((a, b) => byMidi.get(b)[0].midi.cmp(byMidi.get(a)[0].midi));
+    for (const k of midiKeys) {
+      const ns = byMidi.get(k);
+      if (ns.length < 2) continue;
+      const midi = ns[0].midi;
+      const widening = (hand) => {
+        const cur = uniq.filter((m) => m.hand === hand && !m.midi.eq(midi) && m.duplicateOf === null).map((m) => m.midi)
+          .concat(heldMidis(allNotes, midx, t, hand));
+        if (!cur.length) return F0;
+        let mx = cur[0], mn = cur[0];
+        for (const c of cur) { mx = fmax(mx, c); if (c.lt(mn)) mn = c; }
+        return fmax(F0, midi.sub(mx)).add(fmax(F0, mn.sub(midi)));
+      };
+      const wu = widening(UPPER), wl = widening(LOWER);
+      const hand = wu.lt(wl) ? UPPER : wl.lt(wu) ? LOWER : (midi.cmp(fint(60)) >= 0 ? UPPER : LOWER);
+      const keep = ns.find((n) => n.hand === hand);
+      for (const n of ns) if (n !== keep) { n.duplicateOf = keep; rep.counts.both_hands_merged++; }
+      const msg = `${where}: ${noteName(keep, nameMode)} is in both staves - written once, ${HAND_TEXT[hand]} (stretch right +${_q(wu)}, left +${_q(wl)} semitones).`;
+      rep.hands.push(msg); addTo(rep.infos, flagKey, msg);
+    }
+    const live = uniq.filter((n) => n.duplicateOf === null);
+    const up = live.filter((n) => n.hand === UPPER), lo = live.filter((n) => n.hand === LOWER);
+    if (up.length && lo.length) {
+      let maxLo = lo[0].midi; for (const n of lo) maxLo = fmax(maxLo, n.midi);
+      let minUp = up[0].midi; for (const n of up) if (n.midi.lt(minUp)) minUp = n.midi;
+      if (maxLo.gt(minUp)) {
+        const before = new Map(live.map((n) => [n, noteName(n, nameMode)]));
+        const ordered = live.slice().sort((a, b) => b.midi.cmp(a.midi) || a.docOrder - b.docOrder);
+        const changed = [];
+        ordered.forEach((n, i) => {
+          const nw = i < up.length ? UPPER : LOWER;
+          if (n.hand !== nw) { n.hand = nw; changed.push(`${before.get(n)} → ${noteName(n, nameMode)} (${HAND_TEXT[nw]})`); }
+        });
+        const msg = `${where}: voices cross - so that the hands do not cross: ${changed.join(', ')}.`;
+        rep.hands.push(msg); addTo(rep.infos, flagKey, msg);
+      }
+    }
+  }
+
+  function heldAt(notes, midx, t, nameMode) {
+    const held = notes.filter((n) => n.measureIdx === midx && ((n.onset.lt(t) && t.lt(n.end)) || ((n.continuation || n.heldBySlur) && n.onset.eq(t))));
+    const seen = new Set(), out = [];
+    for (const n of held.slice().sort(sortKey)) { const nm = noteName(n, nameMode); if (!seen.has(nm)) { seen.add(nm); out.push(nm); } }
+    return out;
+  }
+
+  // ------------------------------------------------------------------ main flow
+  function convertDocument(doc, opts = {}) {
+    const source = opts.source || '<xml>';
+    const accidentals = opts.accidentals || 'sounding';
+    const slurMode = opts.same_pitch_slur || 'hold';
+    const handsMode = opts.hands || 'playable';
+    const emptyMeasure = opts.empty_measure === undefined ? '-' : opts.empty_measure;
+    const converterLabel = opts.converterLabel || `notencode version ${VERSION} (HTML)`;
+    if (!['sounding', 'written'].includes(accidentals)) throw new NotencodeError("--accidentals must be 'sounding' or 'written'.");
+    if (!['restrike', 'hold'].includes(slurMode)) throw new NotencodeError("--same-pitch-slur must be 'restrike' or 'hold'.");
+    if (!['playable', 'staff'].includes(handsMode)) throw new NotencodeError("--hands must be 'playable' or 'staff'.");
+    const rep = {
+      warnings: [], check: [], info: [], hands: [], flags: new Map(), infos: new Map(),
+      counts: {
+        rests: 0, grace_notes: 0, cue_notes: 0, unpitched: 0, unassigned: 0, tie_continuations: 0,
+        same_pitch_slur_held: 0, same_pitch_slur_restruck: 0, duplicates_merged: 0, both_hands_merged: 0,
+      },
+    };
+    const score = readScore(doc);
+    let staves = findStaves(score);
+    if (!staves.length) throw new NotencodeError('No <part> elements found.');
+    if (!(opts.upper || opts.lower)) staves = dropEmptyStaves(score, staves, rep);
+    const handOf = resolveHands(staves, opts.upper, opts.lower, rep);
+
+    const allNotes = [];
+    const partMeasures = new Map();
+    let order = 0;
+    const marks = [];
+    for (const part of score.parts) {
+      const [pn, pm, o] = parsePart(part, handOf, rep, order, marks);
+      order = o; allNotes.push(...pn); partMeasures.set(part.id, pm);
+    }
+    const counts = [...partMeasures.entries()].map(([pid, ms]) => [pid, ms.length]);
+    const nMeasures = counts.length ? Math.max(...counts.map(([, c]) => c)) : 0;
+    if (new Set(counts.map(([, c]) => c)).size > 1) {
+      rep.warnings.push(`The parts have different numbers of measures: {${counts.map(([p, c]) => `${pyRepr(p)}: ${c}`).join(', ')}}. Matched by order.`);
+    }
+    const measures = [];
+    for (let i = 0; i < nMeasures; i++) {
+      const infos = [...partMeasures.values()].filter((ms) => i < ms.length).map((ms) => ms[i]);
+      const lengths = [];
+      for (const m of infos) if (!lengths.some((l) => l.eq(m.length))) lengths.push(m.length);
+      if (lengths.length > 1) rep.warnings.push(`Measure ${infos[0].label}: the parts have different lengths (${lengths.slice().sort((a, b) => a.cmp(b)).map(_q).join(', ')} quarters).`);
+      if (new Set(infos.map((m) => m.label)).size > 1) rep.warnings.push(`Measure no. ${i + 1}: different measure numbers in the parts: [${infos.map((m) => pyRepr(m.label)).join(', ')}].`);
+      measures.push(infos[0]);
+    }
+    const labels = measures.map((m) => m.label), beatTypes = measures.map((m) => m.beatType);
+    measures.forEach((m, i) => {
+      if (m.expected !== null && m.length.lt(m.expected)) {
+        if (i === 0) rep.info.push(`Measure ${m.label}: shorter than ${m.timeText} - probably a pickup.`);
+        else if (i === measures.length - 1) rep.info.push(`Measure ${m.label}: shorter than ${m.timeText} - probably completes the pickup.`);
+        else if (!m.implicit) rep.warnings.push(`Measure ${m.label}: shorter than the time signature ${m.timeText} (${_q(m.length)} instead of ${_q(m.expected)} quarters).`);
+      }
+    });
+
+    resolveTies(allNotes, labels, rep);
+    checkSamePitchSlurs(allNotes, labels, beatTypes, slurMode, rep, accidentals);
+
+    const groups = new Map();
+    for (const n of allNotes) {
+      if (!n.continuation && !n.heldBySlur) {
+        const k = `${n.measureIdx}|${n.onset.key()}`;
+        if (!groups.has(k)) groups.set(k, { midx: n.measureIdx, t: n.onset, notes: [] });
+        groups.get(k).notes.push(n);
+      }
+    }
+    const groupList = [...groups.values()].sort((a, b) => a.midx - b.midx || a.t.cmp(b.t));
+    for (const g of groupList) {
+      const key = `${g.midx}|${g.t.key()}`;
+      const seen = new Map();
+      for (const n of g.notes.slice().sort((a, b) => a.docOrder - b.docOrder)) {
+        const k = `${n.hand}|${n.midi.key()}`;
+        if (seen.has(k)) {
+          n.duplicateOf = seen.get(k); rep.counts.duplicates_merged++;
+          rep.info.push(`Measure ${labels[g.midx]}, beat ${beatLabel(g.t, beatTypes[g.midx])}: ${noteName(n, accidentals)} is in two voices - written once.`);
+        } else seen.set(k, n);
+      }
+      const where = `Measure ${labels[g.midx]}, beat ${beatLabel(g.t, beatTypes[g.midx])}`;
+      if (handsMode === 'playable') {
+        assignPlayableHands(g.midx, g.t, [...seen.values()], allNotes, where, rep, accidentals, key);
+      } else {
+        const byMidi = new Map();
+        for (const n of seen.values()) { const k = n.midi.key(); if (!byMidi.has(k)) byMidi.set(k, new Set()); byMidi.get(k).add(n.hand); }
+        for (const hs of byMidi.values()) {
+          if (hs.size > 1) {
+            const msg = `${where}: the same pitch in both staves at once - both written (only one key on the piano).`;
+            rep.check.push(msg); addTo(rep.flags, key, msg);
+          }
+        }
+      }
+    }
+
+    // --- lines
+    const outMeasures = [], checklist = [], rows = [];
+    const sounding = allNotes.filter((n) => n.duplicateOf === null);
+    const mStart = []; { let acc = F0; for (const m of measures) { mStart.push(acc); acc = acc.add(m.length); } }
+    const keyInfo = (n) => ({ name: noteName(n, accidentals), midi: n.midi.num(), hand: n.hand, step: n.step,
+      alter: n.alter.num(), octave: n.octave, dur: n.duration.num() });
+    measures.forEach((m, i) => {
+      const gs = groupList.filter((g) => g.midx === i);
+      const lines = [];
+      let header = `Measure ${m.label}`;
+      if (i === 0 || m.timeText !== measures[i - 1].timeText) header += `   (${m.timeText})`;
+      checklist.push(header);
+      for (const g of gs) {
+        const key = `${g.midx}|${g.t.key()}`;
+        const attacks = g.notes.filter((n) => n.duplicateOf === null).sort(sortKey);
+        const line = attacks.map((n) => noteName(n, accidentals)).join('+');
+        lines.push(line);
+        const held = heldAt(sounding, i, g.t, accidentals);
+        const beat = beatLabel(g.t, m.beatType);
+        let row = `  beat ${beat.padEnd(7)}${line}`;
+        if (held.length) row = `${row.padEnd(46)}  holds: ${held.join(', ')}`;
+        checklist.push(row);
+        const infos = rep.infos.get(key) || [], flags = rep.flags.get(key) || [];
+        for (const msg of infos) checklist.push(`             hands: ${afterColon(msg)}`);
+        for (const msg of flags) checklist.push(`             CHECK: ${afterColon(msg)}`);
+        rows.push({
+          measureIdx: i, label: m.label, beat, line, held, t: mStart[i].add(g.t).num(),
+          keys: attacks.map(keyInfo),
+          heldKeys: sounding.filter((n) => n.measureIdx === i && ((n.onset.lt(g.t) && g.t.lt(n.end)) || ((n.continuation || n.heldBySlur) && n.onset.eq(g.t))))
+            .map(keyInfo),
+          infos: infos.map(afterColon), flags: flags.map(afterColon),
+        });
+      }
+      if (!gs.length) {
+        lines.push(emptyMeasure);
+        const held = heldAt(sounding, i, F0, accidentals);
+        checklist.push(`  (no new attack)${held.length ? '  holds: ' + held.join(', ') : ''}`);
+        rep.info.push(`Measure ${m.label}: no new attack - line '${emptyMeasure}' written.`);
+        rows.push({ measureIdx: i, label: m.label, beat: '', line: emptyMeasure, held, t: mStart[i].num(), keys: [], heldKeys: [], infos: [], flags: [], empty: true });
+      }
+      outMeasures.push(lines);
+      checklist.push('');
+    });
+    const codeText = outMeasures.map((ls) => ls.join('\n')).join('\n\n') + '\n';
+
+    // --- note balance
+    const z = rep.counts;
+    const attacksTotal = allNotes.filter((n) => !n.continuation && !n.heldBySlur && n.duplicateOf === null).length;
+    const accounted = attacksTotal + z.tie_continuations + z.same_pitch_slur_held + z.duplicates_merged +
+      z.both_hands_merged + z.rests + z.grace_notes + z.cue_notes + z.unpitched + z.unassigned;
+    const balanceOk = accounted === score.totalNotes;
+    if (!balanceOk) rep.warnings.push(`NOTE BALANCE DOES NOT ADD UP: ${score.totalNotes} <note> elements, but ${accounted} accounted for.`);
+
+    const staffLines = staves.map(([p, s, name]) => {
+      const h = handOf.get(`${p}|${s}`);
+      return `   ${p}/${s} ${pyRepr(name).padEnd(8)} -> ` + ({ upper: 'upper (CAPITALS, right hand)', lower: 'lower (lowercase, left hand)' }[h] || 'not written');
+    });
+    const nLines = outMeasures.reduce((a, ls) => a + ls.length, 0);
+    const pad4 = (x) => String(x).padStart(4);
+    const list = (xs) => (xs.length ? xs.map((w) => ` - ${w}`) : [' - none']);
+    const report = [
+      'NOTENCODE - REPORT', '='.repeat(60),
+      `Input:              ${source}`,
+      `Converter:          ${converterLabel}`,
+      `Accidentals:        ${accidentals}` + (accidentals === 'sounding' ? '  (key signature + score = the key you press)' : '  (printed accidentals only)'),
+      `Same-pitch slur:    ${slurMode}`,
+      `Hands:              ${handsMode}` + (handsMode === 'playable' ? '  (same pitch once; hands never cross)' : '  (hand = staff)'),
+      'Staves:', ...staffLines,
+      `Measures:           ${nMeasures}  (time signature ${measures.length ? measures[0].timeText : '?'})`,
+      `Attack lines:       ${nLines}`, '',
+      'NOTE BALANCE (EVERY <note> ELEMENT)',
+      `   ${pad4(score.totalNotes)}  <note> elements in the file`,
+      `   ${pad4(attacksTotal)}  written as struck notes`,
+      `   ${pad4(z.tie_continuations)}  tie continuations (keep sounding, not written)`,
+      `   ${pad4(z.same_pitch_slur_held)}  slur on the same pitch treated as held`,
+      `   ${pad4(z.duplicates_merged)}  same pitch in two voices (written once)`,
+      `   ${pad4(z.both_hands_merged)}  same pitch in both staves (written once)`,
+      `   ${pad4(z.rests)}  rests`,
+      `   ${pad4(z.grace_notes)}  grace notes (skipped)`,
+      `   ${pad4(z.cue_notes)}  cue notes (skipped)`,
+      `   ${pad4(z.unpitched)}  unpitched notes (skipped)`,
+      `   ${pad4(z.unassigned)}  notes on unassigned staves`,
+      `   => balance ${balanceOk ? 'OK - every note accounted for exactly once' : 'ERROR'}`, '',
+      'WARNINGS (structure of the file)', ...list(rep.warnings), '',
+      'PLEASE CHECK AGAINST THE PRINTED SCORE', ...list(rep.check), '',
+      handsMode === 'playable' ? 'HAND DECISIONS (rule: playable)' : 'HAND DECISIONS', ...list(rep.hands), '',
+      'NOTES', ...list(rep.info), '',
+      'The converter reads the file note by note with fixed rules (no guessing: same file = same output).',
+      'It can only be as correct as the MusicXML file itself. Whether the file matches the printed score',
+      'is not checked - that is what the checklist is for.',
+    ];
+    const checklistText = ['NOTENCODE - CHECKLIST', `Source: ${source}`,
+      'beat = position in the measure (in 6/8 counted in eighths: 1 2 3 4 5 6; 2.5 = a sixteenth after 2).',
+      "'holds' = notes that keep sounding at this moment and are therefore NOT on the line.", '']
+      .concat(checklist).join('\n').replace(/\s+$/, '') + '\n';
+    const spans = sounding.map((n) => [mStart[n.measureIdx].add(n.onset), mStart[n.measureIdx].add(n.onset).add(n.duration)])
+      .filter(([a, b]) => b.gt(a)).sort((x, y) => x[0].cmp(y[0]));
+    const total = measures.length ? mStart[measures.length - 1].add(measures[measures.length - 1].length) : F0;
+    const rests = [];
+    let reach = F0;
+    for (const [a, b] of spans) { if (a.gt(reach)) rests.push({ t: reach.num(), dur: a.sub(reach).num() }); reach = fmax(reach, b); }
+    if (total.gt(reach)) rests.push({ t: reach.num(), dur: total.sub(reach).num() });
+    const timeline = {
+      measures: measures.map((m, i) => ({ label: m.label, start: mStart[i].num(), length: m.length.num(), timeText: m.timeText, beatType: m.beatType,
+        expected: m.expected === null ? null : m.expected.num() })),
+      rests, total: total.num(),
+      marks: marks.filter((m) => m.midx < measures.length).map((m) => (m.kind === 'barline'
+        ? { kind: m.kind, t: mStart[m.midx].num() + (m.atStart ? 0 : measures[m.midx].length.num()) }
+        : Object.assign({ kind: m.kind, t: mStart[m.midx].num() + m.onset, end: mStart[m.midx].num() + m.end }, m.kind === 'syllable' ? { text: m.text, staff: `${m.pid}/${m.staff}`, number: m.number } : {}))),
+    };
+    return {
+      source, codeText, checklistText, timeline, reportText: report.join('\n') + '\n', measures: outMeasures, rows,
+      report: { warnings: rep.warnings, check: rep.check, hands: rep.hands, info: rep.info, counts: Object.assign({}, rep.counts) },
+      stats: { totalNotes: score.totalNotes, attacks: attacksTotal, balanceOk, nMeasures, nLines, timeText: measures.length ? measures[0].timeText : '?' },
+      staves: staves.map(([p, s, name]) => ({ part: p, staff: s, name, hand: handOf.get(`${p}|${s}`) || null })),
+    };
+  }
+  function afterColon(msg) { const i = msg.indexOf(': '); return i >= 0 ? msg.slice(i + 2) : msg; }
+
+  // ------------------------------------------------------------------ files (unpacking .mxl)
+  async function unzipMxl(bytes, inflateRaw) {
+    const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    let eocd = -1;
+    for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+    if (eocd < 0) throw new NotencodeError('The .mxl archive is damaged (no ZIP directory found).');
+    const count = dv.getUint16(eocd + 10, true);
+    let p = dv.getUint32(eocd + 16, true);
+    const entries = new Map();
+    const dec = new TextDecoder('utf-8');
+    for (let i = 0; i < count; i++) {
+      if (dv.getUint32(p, true) !== 0x02014b50) throw new NotencodeError('The .mxl archive is damaged.');
+      const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true);
+      const nlen = dv.getUint16(p + 28, true), xlen = dv.getUint16(p + 30, true), clen = dv.getUint16(p + 32, true);
+      const local = dv.getUint32(p + 42, true);
+      const name = dec.decode(bytes.subarray(p + 46, p + 46 + nlen));
+      entries.set(name, { method, csize, local });
+      p += 46 + nlen + xlen + clen;
+    }
+    async function read(name) {
+      const e = entries.get(name);
+      const lnl = dv.getUint16(e.local + 26, true), lxl = dv.getUint16(e.local + 28, true);
+      const data = bytes.subarray(e.local + 30 + lnl + lxl, e.local + 30 + lnl + lxl + e.csize);
+      if (e.method === 0) return data;
+      if (e.method === 8) return inflateRaw(data);
+      throw new NotencodeError(`Unknown compression (${e.method}) in the .mxl archive.`);
+    }
+    let target = null;
+    if (entries.has('META-INF/container.xml')) {
+      const txt = dec.decode(await read('META-INF/container.xml'));
+      const m = /<rootfile[^>]*full-path\s*=\s*"([^"]+)"/.exec(txt) || /<rootfile[^>]*full-path\s*=\s*'([^']+)'/.exec(txt);
+      if (m) target = entries.has(m[1]) ? m[1] : ([...entries.keys()].find((n) => n.normalize('NFC') === m[1].normalize('NFC')) || null);
+    }
+    if (!target) {
+      target = [...entries.keys()].find((n) => /\.(xml|musicxml)$/i.test(n) && !n.startsWith('META-INF')) || null;
+      if (!target) throw new NotencodeError('No MusicXML file found in the .mxl archive.');
+    }
+    return read(target);
+  }
+
+  function decodeXmlBytes(bytes) {
+    if (bytes[0] === 0xff && bytes[1] === 0xfe) return new TextDecoder('utf-16le').decode(bytes);
+    if (bytes[0] === 0xfe && bytes[1] === 0xff) return new TextDecoder('utf-16be').decode(bytes);
+    return new TextDecoder('utf-8').decode(bytes);
+  }
+
+  async function bytesToXmlText(bytes, inflateRaw) {
+    const isZip = bytes.length > 4 && bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04;
+    return decodeXmlBytes(isZip ? await unzipMxl(bytes, inflateRaw) : bytes);
+  }
+
+
+  // ------------------------------------------------------------------ phrase breaks (display only)
+  // Finds where a musical line (usually a line of the song text) ends. Result: the moments where a new line
+  // starts (always the first note of the new phrase), plus start and end.
+  // Always a break: fermata, breath mark, double bar, hymnal measure split at the end of a line, silence.
+  // Otherwise weighed: punctuation in the lyrics (verse 1), long melody notes, length of the line.
+  const PUNCT = /([.,;:!?])["'»«“”‘’)\]]*\s*$/;
+  function lyricPunctuation(r) {          // [[break, mark, syllable time]] from the lyrics - without the text itself
+    const syllables = (r.timeline.marks || []).filter((m) => m.kind === 'syllable');
+    if (!syllables.length) return [];
+    const perStaff = new Map();
+    for (const sl of syllables) { if (!perStaff.has(sl.staff)) perStaff.set(sl.staff, []); perStaff.get(sl.staff).push(sl); }
+    const upperStaves = new Set((r.staves || []).filter((x) => x.hand === UPPER).map((x) => `${x.part}/${x.staff}`));
+    let choice = null;
+    for (const [staff, list] of perStaff) {
+      const rank = (upperStaves.has(staff) ? 1e6 : 0) + list.length;
+      if (!choice || rank > choice.rank) choice = { staff, list, rank };
+    }
+    const nr = (x) => { const v = parseInt(x.number, 10); return isNaN(v) ? 999 : v; };
+    const first = Math.min(...choice.list.map(nr));
+    const l = choice.list.filter((x) => nr(x) === first).sort((x, y) => x.t - y.t);
+    const out = [];
+    out.syllables = l.map((x) => Math.round(x.t * 1e6) / 1e6);
+    l.forEach((sl, i) => {
+      const m = PUNCT.exec(sl.text); if (!m) return;
+      const next = i + 1 < l.length ? l[i + 1].t : r.timeline.total;
+      out.push([Math.round(next * 1e6) / 1e6, m[1], Math.round(sl.t * 1e6) / 1e6]);
+    });
+    return out;
+  }
+  const WEIGHTS = { comma: 3, sentence: 5, long: 2, longNote: 3, veryLong: 4, longBefore: 1, price: 3.2, nMin: 5, nGood: 6, nMax: 16, target: 10, w1: 0.3, w2: 1 };
+  function phraseBreaks(r, extra) {
+    const tl = r.timeline, ms = tl.measures, total = tl.total, EPS = 1e-6;
+    const result = { bounds: [0, total], reasons: [] };
+    if (!ms.length || !(total > 0)) return result;
+    const events = r.rows.filter((x) => !x.empty && x.keys.length);
+    const times = [...new Set(events.map((x) => x.t))].sort((a, b) => a - b);
+    if (times.length < 3) return result;
+    const nextAttack = (T) => { for (const z of times) if (z >= T - EPS) return z; return total; };
+    const mostCommon = (values) => { const c = new Map(); for (const v of values) { const k = v.toFixed(6); c.set(k, (c.get(k) || 0) + 1); } let best = null, n = 0; for (const [k, v] of c) if (v > n) { n = v; best = Number(k); } return best; };
+    const nominal = mostCommon(ms.map((m) => (m.expected === null || m.expected === undefined ? m.length : m.expected))) || 4;
+    const bt = ms[0].beatType || 4;
+    const beat = (bt === 8 && Math.round(nominal * 2) % 3 === 0) ? 1.5 : 4 / bt;
+    // melody: attacks whose highest note is not below a held note of the right hand
+    const mel = [];
+    for (const x of events) {
+      const upper = x.keys.filter((k) => k.hand === UPPER), pool = upper.length ? upper : x.keys;
+      const top = Math.max(...pool.map((k) => k.midi));
+      const held = x.heldKeys.filter((k) => !upper.length || k.hand === UPPER).map((k) => k.midi);
+      if (!held.length || top >= Math.max(...held) - 0.01) { if (!mel.length || x.t > mel[mel.length - 1] + EPS) mel.push(x.t); }
+    }
+    const durations = mel.map((t, i) => (i + 1 < mel.length ? mel[i + 1] : total) - t);
+    const sorted = durations.slice(0, -1).sort((a, b) => a - b);
+    const median = sorted.length ? sorted[Math.floor(sorted.length / 2)] : beat;
+    const melDuration = (t) => { let d = 0; for (let i = 0; i < mel.length && mel[i] <= t + EPS; i++) d = durations[i]; return d; };
+    const isLong = (d) => d >= 2 * median - EPS && d >= beat - EPS;
+
+    const cand = new Map();
+    const add = (T, score, reason, exact) => {
+      const z = exact ? T : nextAttack(T);
+      if (z <= times[0] + EPS || z >= total - EPS) return;
+      const k = z.toFixed(6), old = cand.get(k);
+      if (!old) cand.set(k, { t: z, score, reason });
+      else if (score > old.score) { old.score = score; old.reason = reason; }
+    };
+    for (const m of tl.marks || []) {
+      if (m.kind === 'fermata') add(m.end, 10, 'fermata');
+      else if (m.kind === 'breath') add(m.t, 9, 'breath mark');
+      else if (m.kind === 'barline') add(m.t, 8, 'double bar');
+    }
+    const short = (m) => m.expected !== null && m.expected !== undefined && m.length < m.expected - EPS;
+    for (let i = 1; i < ms.length - 1; i++) {
+      if (!short(ms[i])) continue;
+      add(ms[i].start + ms[i].length, 8, 'split measure');
+      if (short(ms[i + 1]) && Math.abs(ms[i].length + ms[i + 1].length - ms[i].expected) < EPS) i++;   // 3 + 1: the second part is a pickup
+    }
+    for (const rs of tl.rests) if (rs.dur >= beat - EPS && rs.t > times[0] + EPS) add(rs.t, 7, 'rest');
+    const longCands = [];
+    const onBarline = (T) => ms.some((m) => Math.abs(m.start - T) < EPS);
+    for (let i = 0; i + 1 < mel.length; i++) {
+      if (!isLong(durations[i])) continue;
+      // several long notes in a row: break at the barline, otherwise after the last one
+      let j = i; while (j + 2 < mel.length && isLong(durations[j + 1])) j++;
+      const run = []; for (let k = i; k <= j; k++) run.push({ t: nextAttack(mel[k] + durations[k]), d: durations[k] });
+      const atBar = run.findIndex((x) => onBarline(x.t));
+      const main = atBar >= 0 ? atBar : run.length - 1;
+      run.forEach((x, k) => longCands.push({ t: x.t, score: k !== main ? WEIGHTS.longBefore : (x.d >= 3 * median - EPS ? WEIGHTS.veryLong : WEIGHTS.longNote), bar: onBarline(x.t) }));
+      i = j;
+    }
+    const melIndex = (T) => { let k = -1; for (let i = 0; i < mel.length && mel[i] <= T + EPS; i++) k = i; return k; };
+    const ownPunct = lyricPunctuation(r);
+    const punct = ownPunct.length ? ownPunct : ((extra && extra.punctuation) || []);
+    const syllableTimes = ownPunct.length ? ownPunct.syllables : ((extra && extra.syllables) || null);
+    for (const [brk, mark, tSyl] of punct) {
+      // "feminine" line endings (a-DO-re him,): the long note lies up to two melody notes before the punctuation
+      const iB = melIndex(brk - EPS);
+      let bonus = isLong(melDuration(tSyl)) ? WEIGHTS.long : 0;
+      for (const lc of longCands) if (!lc.used && lc.t <= brk + EPS && melIndex(lc.t) >= iB - 2) { bonus = WEIGHTS.long; lc.used = true; }
+      add(brk, (mark === ',' ? WEIGHTS.comma : WEIGHTS.sentence) + bonus, mark === ',' ? 'comma' : 'sentence end', true);
+    }
+    // instrumental piece (no lyrics, fast melody): prefer lines at the barline, of equal length, usually 4 short or 2 long measures
+    const instrumental = !syllableTimes && median < 0.75 - EPS;
+    for (const lc of longCands) if (!lc.used) add(lc.t, instrumental && !lc.bar ? 0 : lc.score, 'long note', true);
+    for (const m of ms) add(m.start, 0.5, 'barline');
+
+    // choice: lowest "cost" - every break costs something, its sign earns something; lines that are too short or too long cost a lot
+    const P = [{ t: 0, score: 0, fixed: true }, ...[...cand.values()].sort((a, b) => a.t - b.t).map((k) => Object.assign(k, { fixed: k.score >= 7.5 && /fermata|breath|double|split|rest/.test(k.reason) })), { t: total, score: 0, fixed: true }];
+    const LMIN = 3.5, LMAX = Math.max(24, 3 * nominal), PRICE = instrumental ? 1.5 : WEIGHTS.price;
+    const countable = syllableTimes && syllableTimes.length >= 0.5 * mel.length ? syllableTimes : mel;   // syllables, otherwise melody notes
+    const notesIn = (a, b) => { let n = 0; for (const t of countable) if (t >= a - EPS && t < b - EPS) n++; return n; };
+    const choose = (target, w) => {
+      const cost = (L, a, b) => {
+        if (instrumental) {
+          const targetI = (nominal <= 3 + EPS ? 4 : 2) * nominal;
+          return (L < 2 * nominal - EPS ? 6 : 0) + (L > 2 * targetI + EPS ? 2 + 4 * (L - 2 * targetI) / targetI : 0) + 1.5 * ((L - targetI) / targetI) ** 2;
+        }
+        const n = notesIn(a, b);
+        const nMin = countable === mel ? WEIGHTS.nMin : WEIGHTS.nMin - 1, nGood = countable === mel ? WEIGHTS.nGood : WEIGHTS.nGood - 1;
+        let k = n < nMin ? 6 + 2 * (nMin - n) : (n < nGood ? 1.5 : (n > WEIGHTS.nMax ? 1 + 0.5 * (n - WEIGHTS.nMax) : 0));
+        if (L < LMIN - EPS) k += 8; else if (L > LMAX + EPS) k += 2 + 8 * (L - LMAX) / LMAX;
+        return k + w * ((L - target) / target) ** 2;
+      };
+      const best = [0], prev = [-1];
+      for (let i = 1; i < P.length; i++) {
+        best[i] = Infinity; prev[i] = -1;
+        for (let j = i - 1; j >= 0; j--) {
+          const c = best[j] + cost(P[i].t - P[j].t, P[j].t, P[i].t) + (i < P.length - 1 ? PRICE - P[i].score : 0);
+          if (c < best[i]) { best[i] = c; prev[i] = j; }
+          if (P[j].fixed) break;                     // fixed breaks must not be skipped
+        }
+      }
+      const way = []; for (let i = prev[P.length - 1]; i > 0; i = prev[i]) way.push(P[i]);
+      return way.reverse();
+    };
+    // pass 1: usual line length; pass 2: lines as even as the ones found in pass 1
+    let way = choose(WEIGHTS.target, WEIGHTS.w1);
+    if (WEIGHTS.w2 > 0) {
+      const g = [0, ...way.map((k) => k.t), total], l = [];
+      for (let i = 1; i < g.length; i++) l.push(g[i] - g[i - 1]);
+      l.sort((a, b) => a - b);
+      const m = l[Math.floor(l.length / 2)];
+      if (m > 0) way = choose(m, WEIGHTS.w2);
+    }
+    result.bounds = [0, ...way.map((k) => k.t), total];
+    result.reasons = way.map((k) => ({ t: k.t, reason: k.reason }));
+    return result;
+  }
+
+  const api = { VERSION, NotencodeError, convertDocument, bytesToXmlText, noteName, beatLabel, Fr, phraseBreaks, lyricPunctuation, WEIGHTS };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.NotencodeCore = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+
+</script>
+<script>
+(function () {
+  'use strict';
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const store = {                            // browser storage is optional: everything works without it
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* no storage */ } },
+    del(k) { try { localStorage.removeItem(k); } catch (e) { /* no storage */ } },
+  };
+
+  // ---------- languages. To add one: copy the "en" block, translate the values, add it to LANGS.
+  // The check report itself (warnings, hand decisions ...) comes from the converter and is always in English.
+  const LANGS = { en: 'English', de: 'Deutsch' };
+  const T = {
+    en: {
+      'title': 'Easy Piano Note System',
+      'tagline': 'MusicXML in, easy piano notes out: 3 lines per octave, 7 fixed places, one color per note name. Learn 7 notes – play 88 keys.',
+      'open': 'Open MusicXML',
+      'settings': 'Settings',
+      'opt.accidentals': 'Accidentals',
+      'opt.accidentals.sounding': 'with key signature',
+      'opt.accidentals.written': 'printed only',
+      'opt.accidentals.hint': '"with key signature": the key you press (in B-flat major every B as bb).',
+      'opt.slur': 'Slur between equal notes',
+      'opt.slur.hold': 'hold',
+      'opt.slur.restrike': 'strike again',
+      'opt.slur.hint': 'Looks like a tie in the printed score.',
+      'opt.hands': 'Hands',
+      'opt.hands.playable': 'playable',
+      'opt.hands.staff': 'by staff',
+      'opt.hands.hint': '"playable": the same note only once, hands never cross.',
+      'example': 'Example: <b>Silent Night</b> (public domain)',
+      'sum.measures': '<strong>{0}</strong> measures',
+      'sum.lines': '<strong>{0}</strong> lines',
+      'sum.notes': '<strong>{0}</strong> notes in the file',
+      'sum.balanceOk': 'Balance OK - every note accounted for',
+      'sum.balanceBad': 'Note balance does not add up',
+      'sum.warnings': (n) => `${n} warning${n === 1 ? '' : 's'}`,
+      'sum.check': (n) => `${n} place${n === 1 ? '' : 's'} to check in the score`,
+      'sum.nothing': 'nothing to check',
+      'legend.colors': 'Colors of the 7 notes',
+      'note.B': 'B',
+      'fs.open': '⛶ Fullscreen',
+      'fs.close': '✕ Close',
+      'fs.smaller': 'Smaller notes',
+      'fs.bigger': 'Bigger notes',
+      'view.breaks': 'Lines',
+      'view.breaks.phrase': 'by phrase',
+      'view.breaks.phrase.hint': 'Every musical line (usually a line of the song) starts on a new row',
+      'view.breaks.auto': 'auto',
+      'view.breaks.2': '2 measures',
+      'view.breaks.4': '4 measures',
+      'view.octaves': 'Octaves',
+      'view.octaves.used': 'used only',
+      'view.octaves.all': 'all',
+      'view.time': 'Time',
+      'view.time.compact': 'compact',
+      'view.time.exact': 'exact',
+      'view.spacing': 'Spacing',
+      'view.spacing.tight': 'tight',
+      'view.spacing.normal': 'normal',
+      'view.spacing.wide': 'wide',
+      'view.left': 'Left hand',
+      'view.left.same': 'same color',
+      'view.left.darker': 'darker',
+      'export.png': 'Save as PNG',
+      'export.svg': 'Save as SVG',
+      'export.print': 'Print',
+      'more': 'Notencode, keyboard and check report',
+      'code.title': 'Notencode & keyboard',
+      'code.copy': 'Copy code',
+      'code.save': 'Save as .txt',
+      'code.empty': '–  (no new attack)',
+      'code.check': 'check',
+      'code.hand': 'hand',
+      'measure.short': 'm.{0}',
+      'beat.short': 'beat {0}',
+      'detail.label': 'Selected line',
+      'detail.prev': 'Previous line',
+      'detail.next': 'Next line',
+      'detail.where': (label, beat, i, n) => `Measure ${label}${beat ? ' · beat ' + beat : ''}   (${i} of ${n})`,
+      'detail.holds': 'keeps sounding:',
+      'detail.check': 'Check:',
+      'detail.hand': 'Hand:',
+      'legend.rh': 'right hand presses',
+      'legend.lh': 'left hand presses',
+      'legend.held': 'keeps sounding',
+      'keyboard': 'Keyboard: {0}',
+      'sel.where': (label, beat) => `Measure ${label}${beat ? ' · beat ' + beat : ''}`,
+      'report.title': 'Check report',
+      'report.langNote': '',
+      'tile.attacks': 'notes struck',
+      'tile.held': 'notes held (ties and slurs)',
+      'tile.merged': 'equal notes merged',
+      'tile.skipped': 'rests and grace notes skipped',
+      'list.check': 'Check in the printed score',
+      'list.hands': 'Hand decisions',
+      'list.warnings': 'Warnings about the file',
+      'list.info': 'Notes',
+      'list.none': 'none',
+      'report.checklist': 'Checklist as text (measure, beat, held notes)',
+      'report.text': 'Check report as text',
+      'copy': 'Copy',
+      'copied': '{0} copied',
+      'copyFail': 'Copying is not possible - please select the text',
+      'what.code': 'Notencode',
+      'what.checklist': 'Checklist',
+      'what.report': 'Check report',
+      'err.title': 'This file cannot be converted like this.',
+      'err.assign': 'Which staves belong to which hand?',
+      'err.leaveOut': 'leave out',
+      'err.upper': 'right hand (CAPITALS)',
+      'err.lower': 'left hand (lowercase)',
+      'err.convert': 'Convert',
+      'err.pick': 'Please choose at least one staff for each hand.',
+      'err.noInflate': 'This browser cannot unpack .mxl files. Please save the file as uncompressed .musicxml.',
+      'menu.next': '↓  Move to the next line',
+      'menu.prev': '↑  Move to the previous line',
+      'menu.new': '↵  New line from here',
+      'menu.auto': 'Lines automatic again',
+      'lines.saved': 'Your line changes are remembered in this browser.',
+      'lines.notSaved': 'Your line changes apply while this page is open.',
+      'drop': 'Drop the file here',
+      'foot': 'How to read it: B on the top line, G on the middle line, E on the bottom line, C below; every octave has the same block. The octave from C4 (middle of the keyboard) has thicker lines; count the octaves up and down from it. Distance to the right = time, vertical stroke = rest, faint dashed line = barline. Accidentals stand at every note, because there is no key signature. The notes come from the same tested rules as <code>notencode.py</code>, cross-checked with music21. The file is only read in this browser window and is not uploaded anywhere. Keyboard: ↑ ↓ moves between places; right-click a note to change the lines. Open source (MIT).',
+    },
+    de: {
+      'title': 'Farben-Noten',
+      'tagline': 'MusicXML hinein, Klaviernoten in Farben-Noten heraus: 3 Linien pro Oktave, 7 feste Plätze, Farbe nach Tonname. Wer die 7 Plätze kennt, kann jede Oktave lesen.',
+      'open': 'MusicXML öffnen',
+      'settings': 'Einstellungen',
+      'opt.accidentals': 'Vorzeichen',
+      'opt.accidentals.sounding': 'mit Tonart',
+      'opt.accidentals.written': 'nur gedruckte',
+      'opt.accidentals.hint': '„mit Tonart“: die Taste, die man drückt (in B-Dur jedes B als bb).',
+      'opt.slur': 'Bogen zwischen gleichen Tönen',
+      'opt.slur.hold': 'halten',
+      'opt.slur.restrike': 'neu anschlagen',
+      'opt.slur.hint': 'Sieht im Notenbild aus wie ein Haltebogen.',
+      'opt.hands': 'Hände',
+      'opt.hands.playable': 'spielbar',
+      'opt.hands.staff': 'nach Notensystem',
+      'opt.hands.hint': '„spielbar“: gleicher Ton nur einmal, keine verschränkten Hände.',
+      'example': 'Beispiel: <b>Stille Nacht</b> (gemeinfrei)',
+      'sum.measures': '<strong>{0}</strong> Takte',
+      'sum.lines': '<strong>{0}</strong> Zeilen',
+      'sum.notes': '<strong>{0}</strong> Noten in der Datei',
+      'sum.balanceOk': 'Bilanz OK – jede Note erfasst',
+      'sum.balanceBad': 'Bilanz stimmt nicht',
+      'sum.warnings': (n) => `${n} Warnung${n === 1 ? '' : 'en'}`,
+      'sum.check': (n) => `${n} Stelle${n === 1 ? '' : 'n'} im Notenbild prüfen`,
+      'sum.nothing': 'nichts zu prüfen',
+      'legend.colors': 'Farben der 7 Töne',
+      'note.B': 'H',
+      'fs.open': '⛶ Vollbild',
+      'fs.close': '✕ Schließen',
+      'fs.smaller': 'Noten kleiner',
+      'fs.bigger': 'Noten größer',
+      'view.breaks': 'Zeilen',
+      'view.breaks.phrase': 'nach Sinn',
+      'view.breaks.phrase.hint': 'Jede musikalische Zeile (meist eine Liedzeile) beginnt neu',
+      'view.breaks.auto': 'auto',
+      'view.breaks.2': '2 Takte',
+      'view.breaks.4': '4 Takte',
+      'view.octaves': 'Oktaven',
+      'view.octaves.used': 'nur benutzte',
+      'view.octaves.all': 'alle',
+      'view.time': 'Zeit',
+      'view.time.compact': 'kompakt',
+      'view.time.exact': 'genau',
+      'view.spacing': 'Abstand',
+      'view.spacing.tight': 'eng',
+      'view.spacing.normal': 'normal',
+      'view.spacing.wide': 'weit',
+      'view.left': 'Linke Hand',
+      'view.left.same': 'gleiche Farbe',
+      'view.left.darker': 'dunkler',
+      'export.png': 'Als PNG speichern',
+      'export.svg': 'Als SVG speichern',
+      'export.print': 'Drucken',
+      'more': 'Notencode, Klaviatur und Prüfbericht',
+      'code.title': 'Notencode & Klaviatur',
+      'code.copy': 'Code kopieren',
+      'code.save': 'Als .txt speichern',
+      'code.empty': '–  (kein neuer Anschlag)',
+      'code.check': 'prüfen',
+      'code.hand': 'Hand',
+      'measure.short': 'T{0}',
+      'beat.short': 'Zz {0}',
+      'detail.label': 'Gewählte Zeile',
+      'detail.prev': 'Vorige Zeile',
+      'detail.next': 'Nächste Zeile',
+      'detail.where': (label, beat, i, n) => `Takt ${label}${beat ? ' · Zählzeit ' + beat : ''}   (${i} von ${n})`,
+      'detail.holds': 'klingt weiter:',
+      'detail.check': 'Prüfen:',
+      'detail.hand': 'Hand:',
+      'legend.rh': 'rechte Hand drückt',
+      'legend.lh': 'linke Hand drückt',
+      'legend.held': 'klingt weiter',
+      'keyboard': 'Klaviatur: {0}',
+      'sel.where': (label, beat) => `Takt ${label}${beat ? ' · Zählzeit ' + beat : ''}`,
+      'report.title': 'Prüfbericht',
+      'report.langNote': 'Die einzelnen Meldungen kommen vom Konverter und sind auf Englisch.',
+      'tile.attacks': 'Töne angeschlagen',
+      'tile.held': 'Töne gehalten (Bögen)',
+      'tile.merged': 'gleiche Töne zusammengefasst',
+      'tile.skipped': 'Pausen & Vorschläge übersprungen',
+      'list.check': 'Im Notenbild prüfen',
+      'list.hands': 'Hand-Entscheidungen',
+      'list.warnings': 'Warnungen zur Datei',
+      'list.info': 'Hinweise',
+      'list.none': 'keine',
+      'report.checklist': 'Prüfliste als Text (Takt, Zählzeit, gehaltene Töne)',
+      'report.text': 'Prüfbericht als Text',
+      'copy': 'Kopieren',
+      'copied': '{0} kopiert',
+      'copyFail': 'Kopieren nicht möglich – bitte Text markieren',
+      'what.code': 'Notencode',
+      'what.checklist': 'Prüfliste',
+      'what.report': 'Prüfbericht',
+      'err.title': 'Diese Datei lässt sich so nicht umwandeln.',
+      'err.assign': 'Welche Notensysteme gehören zu welcher Hand?',
+      'err.leaveOut': 'weglassen',
+      'err.upper': 'rechte Hand (GROSS)',
+      'err.lower': 'linke Hand (klein)',
+      'err.convert': 'Umwandeln',
+      'err.pick': 'Bitte mindestens ein System für jede Hand wählen.',
+      'err.noInflate': 'Dieser Browser kann .mxl nicht entpacken. Bitte die Datei als unkomprimiertes .musicxml speichern.',
+      'menu.next': '↓  In die nächste Zeile',
+      'menu.prev': '↑  In die vorige Zeile',
+      'menu.new': '↵  Neue Zeile ab hier',
+      'menu.auto': 'Zeilen wieder automatisch',
+      'lines.saved': 'Deine Zeilen werden in diesem Browser gemerkt.',
+      'lines.notSaved': 'Deine Zeilen gelten, solange die Seite offen ist.',
+      'drop': 'Datei hier ablegen',
+      'foot': 'Farben-Noten: H auf der oberen Linie, G auf der mittleren, E auf der unteren, C darunter; jede Oktave hat denselben Block. Die Oktave ab C4 (Mitte der Klaviatur) hat dickere Linien; von ihr aus zählt man die Oktaven nach oben und unten. Abstand nach rechts = Zeit, senkrechter Strich = Pause, fein gestrichelte Linie = Taktstrich. Vorzeichen stehen an jeder Note, weil es keine Tonart-Vorzeichnung gibt. Die Noten kommen aus denselben geprüften Regeln wie <code>notencode.py</code>, gegengeprüft mit music21. Die Datei wird nur in diesem Browserfenster gelesen und nirgends hochgeladen. Tastatur: ↑ ↓ wechselt die Stelle; Rechtsklick auf eine Note ändert die Zeilen. Open Source (MIT).',
+    },
+  };
+  let lang = store.get('notencode-lang');
+  if (!LANGS[lang]) lang = 'en';
+  function t(key, ...args) {
+    const v = (T[lang] && T[lang][key] !== undefined) ? T[lang][key] : T.en[key];
+    if (typeof v === 'function') return v(...args);
+    return String(v === undefined ? key : v).replace(/\{(\d)\}/g, (m, i) => (args[i] === undefined ? m : args[i]));
+  }
+  const RAW_HTML = new Set(['foot']);
+  function applyLang() {
+    document.documentElement.lang = lang;
+    document.title = t('title');
+    for (const el of document.querySelectorAll('[data-i18n]')) {
+      const k = el.dataset.i18n;
+      if (RAW_HTML.has(k)) el.innerHTML = t(k); else el.textContent = t(k);
+    }
+    for (const el of document.querySelectorAll('[data-i18n-label]')) el.setAttribute('aria-label', t(el.dataset.i18nLabel));
+    for (const el of document.querySelectorAll('[data-i18n-title]')) el.title = t(el.dataset.i18nTitle);
+    $('#legend7').innerHTML = ['C', 'D', 'E', 'F', 'G', 'A', 'B'].map((s) => `<span class="tone"><i style="background:${COLOR[s]}"></i>${s === 'B' ? esc(t('note.B')) : s}</span>`).join('');
+    $('#dropzone').textContent = t('drop');
+    $('#fullscreen-btn').textContent = fs.on ? t('fs.close') : t('fs.open');
+  }
+  const langSel = $('#lang');
+  langSel.innerHTML = Object.entries(LANGS).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('');
+  langSel.value = lang;
+  langSel.addEventListener('change', () => { lang = langSel.value; store.set('notencode-lang', lang); applyLang(); render(); });
+
+  const state = {
+    xmlText: null, source: '', example: false, mapping: null, result: null, error: null, sel: 0,
+    opts: { accidentals: 'sounding', same_pitch_slur: 'hold', hands: 'playable' },
+    view: { breaks: 'phrase', spacing: 'normal', left: 'same', octaves: 'used', time: 'compact', size: '1' },
+    title: '', lyricsExtra: null, phrases: null, manualBreaks: null, pieceKey: null,
+  };
+  const fs = { on: false };                // fullscreen
+  try { const o = JSON.parse(store.get('notencode-options') || 'null'); if (o) for (const k in state.opts) if (o[k]) state.opts[k] = o[k]; } catch (e) { /* no storage */ }
+  try { const o = JSON.parse(store.get('notencode-view') || 'null'); if (o) for (const k in state.view) if (o[k]) state.view[k] = o[k]; } catch (e) { /* no storage */ }
+  const saveView = () => store.set('notencode-view', JSON.stringify(state.view));
+
+  // ---------- converting
+  function run() {
+    const doc = new DOMParser().parseFromString(state.xmlText, 'application/xml');
+    const tEl = doc.getElementsByTagName('work-title')[0] || doc.getElementsByTagName('movement-title')[0];
+    state.title = tEl ? tEl.textContent.trim() : '';
+    try {
+      const opts = Object.assign({ source: state.source }, state.opts);
+      if (state.mapping) { opts.upper = state.mapping.upper; opts.lower = state.mapping.lower; }
+      state.result = NotencodeCore.convertDocument(doc, opts);
+      state.error = null;
+      computePhrases();
+      state.sel = Math.min(state.sel, state.result.rows.length - 1);
+    } catch (e) {
+      state.result = null; state.error = e;
+      if (!(e instanceof NotencodeCore.NotencodeError)) console.error(e);
+    }
+    render();
+  }
+
+  function computePhrases() {                 // lines set by hand (right-click) win over the automatic detection
+    const r = state.result; if (!r) { state.phrases = null; return; }
+    const total = r.timeline.total;
+    if (Array.isArray(state.manualBreaks)) {
+      const inner = [...new Set(state.manualBreaks.filter((x) => typeof x === 'number' && x > 1e-9 && x < total - 1e-9).map((x) => Math.round(x * 1e6) / 1e6))].sort((a, b) => a - b);
+      state.phrases = { bounds: [0, ...inner, total], reasons: [], manual: true };
+      return;
+    }
+    try { state.phrases = NotencodeCore.phraseBreaks(r, state.lyricsExtra); } catch (e) { state.phrases = null; console.error(e); }
+  }
+
+  function pieceKey(xml) {                    // short fingerprint of the file, to remember line changes per piece
+    let h1 = 0x811c9dc5, h2 = 0x01000193;
+    for (let i = 0; i < xml.length; i++) { const c = xml.charCodeAt(i); h1 = Math.imul(h1 ^ c, 16777619) >>> 0; h2 = Math.imul(h2 + c, 2654435761) >>> 0; }
+    return 'notencode-lines:' + h1.toString(16) + h2.toString(16) + ':' + xml.length;
+  }
+  function loadManualBreaks() {
+    try { const v = JSON.parse(store.get(state.pieceKey) || 'null'); return Array.isArray(v) ? v : null; } catch (e) { return null; }
+  }
+
+  async function openFile(file) {
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const inflate = async (data) => {
+        if (typeof DecompressionStream === 'undefined') throw new NotencodeCore.NotencodeError(t('err.noInflate'));
+        const ds = new DecompressionStream('deflate-raw');
+        const out = new Response(new Blob([data]).stream().pipeThrough(ds));
+        return new Uint8Array(await out.arrayBuffer());
+      };
+      state.xmlText = await NotencodeCore.bytesToXmlText(bytes, inflate);
+      state.source = file.name; state.example = false; state.mapping = null; state.sel = 0; state.lyricsExtra = null;
+      state.pieceKey = pieceKey(state.xmlText); state.manualBreaks = loadManualBreaks();
+      run();
+    } catch (e) {
+      state.result = null; state.error = e; state.source = file.name; state.example = false; render();
+    }
+  }
+
+  // ---------- rendering
+  const handClass = (name) => (/^[A-G]/.test(name) ? 'r' : 'l');
+  function codeHtml(line) {
+    if (line === '-') return `<span class="plus">${esc(t('code.empty'))}</span>`;
+    return line.split('+').map((x) => `<span class="${handClass(x)}">${esc(x)}</span>`).join('<span class="plus">+</span>');
+  }
+
+  function render() {
+    $('#file-name').innerHTML = state.example ? t('example') : `<b>${esc(state.source)}</b>`;
+    for (const seg of document.querySelectorAll('.seg')) {
+      const cur = seg.dataset.opt ? state.opts[seg.dataset.opt] : state.view[seg.dataset.view];
+      for (const b of seg.querySelectorAll('button')) b.setAttribute('aria-pressed', String(cur === b.dataset.val));
+    }
+    const r = state.result;
+    $('#desk').hidden = !r; $('#report').hidden = !r; $('#colors').hidden = !r; $('#more').hidden = !r;
+    renderError();
+    if (!r) { $('#summary').innerHTML = ''; return; }
+    const z = r.report;
+    const nCheck = z.check.length, nWarn = z.warnings.length;
+    $('#summary').innerHTML = [
+      `<span>${t('sum.measures', r.stats.nMeasures)}</span>`,
+      `<span>${t('sum.lines', r.stats.nLines)}</span>`,
+      `<span>${t('sum.notes', r.stats.totalNotes)}</span>`,
+      `<span class="status ${r.stats.balanceOk ? 'ok' : 'bad'}">${esc(r.stats.balanceOk ? t('sum.balanceOk') : t('sum.balanceBad'))}</span>`,
+      nWarn ? `<span class="status bad">${esc(t('sum.warnings', nWarn))}</span>` : '',
+      nCheck ? `<span class="status warn">${esc(t('sum.check', nCheck))}</span>` : `<span class="status ok">${esc(t('sum.nothing'))}</span>`,
+    ].join('');
+
+    // code panel
+    let html = '';
+    const byMeasure = new Map();
+    r.rows.forEach((row, idx) => { if (!byMeasure.has(row.measureIdx)) byMeasure.set(row.measureIdx, []); byMeasure.get(row.measureIdx).push(idx); });
+    for (const [, idxs] of byMeasure) {
+      const label = r.rows[idxs[0]].label;
+      html += `<section class="measure"><div class="mnum">${esc(t('measure.short', label))}</div><ol class="lines">`;
+      for (const idx of idxs) {
+        const row = r.rows[idx];
+        const marks = (row.flags.length ? `<span class="marker check">${esc(t('code.check'))}</span>` : '') + (row.infos.length ? `<span class="marker hand">${esc(t('code.hand'))}</span>` : '');
+        html += `<li><button type="button" class="line" data-i="${idx}" ${idx === state.sel ? 'aria-current="true"' : ''}><span class="beat">${row.beat ? esc(t('beat.short', row.beat)) : ''}</span><span class="code">${codeHtml(row.line)}</span>${marks}</button></li>`;
+      }
+      html += '</ol></section>';
+    }
+    $('#measures').innerHTML = html;
+    $('#piece-title').textContent = state.title || (state.example ? 'Silent Night' : state.source.replace(/\.[^.]+$/, ''));
+    renderColors();
+    renderDetail();
+    renderReport();
+  }
+
+  function renderDetail() {
+    const r = state.result; if (!r || !r.rows.length) return;
+    const row = r.rows[state.sel];
+    for (const b of document.querySelectorAll('.line')) {
+      if (Number(b.dataset.i) === state.sel) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
+    }
+    $('#where').textContent = t('detail.where', row.label, row.beat, state.sel + 1, r.rows.length);
+    $('#big-line').innerHTML = codeHtml(row.line);
+    $('#holds').innerHTML = row.held.length ? `${esc(t('detail.holds'))} <span class="code">${row.held.map((x) => `<span class="${handClass(x)}">${esc(x)}</span>`).join(', ')}</span>` : '';
+    $('#keys').innerHTML = keyboardSvg(row, r.rows);
+    $('#messages').innerHTML = row.flags.map((m) => `<div class="message check"><b>${esc(t('detail.check'))}</b> ${esc(m)}</div>`).join('') +
+      row.infos.map((m) => `<div class="message hand"><b>${esc(t('detail.hand'))}</b> ${esc(m)}</div>`).join('');
+    markColors();
+  }
+
+  // ---------- drawing the colored sheet
+  const COLOR = { C: '#FFD400', D: '#1976D2', E: '#2E7D32', F: '#8E24AA', G: '#6D4C41', A: '#D32F2F', B: '#F57C00' };
+  const PLACE = { B: 0, A: 0.5, G: 1, F: 1.5, E: 2, D: 2.5, C: 3 };   // in line spaces from the top line
+  const LG = 14, RX = 9, RY = 7, BLOCK = 7 * LG, PAD = 34, LEFT = 48;   // line space 14, note head 9×7, block 4+3 spaces
+  const LIGHT = { '--sheet': '#ffffff', '--staff': '#b4b9c2', '--staff-c4': '#7f8692', '--rest': '#6b7280', '--acc': '#3a3f47', '--muted': '#5b626e' };
+  const ACC_SIGN = { '-2': 'bb', '-1': 'b', '1': '#', '2': '##' };
+  let sheetSvgText = '';
+  let lastRowStarts = null;
+  function cssColor(name, light) { return light ? LIGHT[name] : getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+  function darker(hex) { const v = parseInt(hex.slice(1), 16); return `rgb(${Math.round((v >> 16 & 255) * 0.6)},${Math.round((v >> 8 & 255) * 0.6)},${Math.round((v & 255) * 0.6)})`; }
+
+  function renderColors(light) {
+    const r = state.result; if (!r) return;
+    const box = $('#sheet');
+    const ms = r.timeline.measures;
+    const ev = r.rows.map((row, i) => ({ row, i })).filter((e) => !e.row.empty && e.row.keys.length);
+    let gMin = 99, gMax = -99;
+    for (const e of ev) for (const k of e.row.keys) { gMin = Math.min(gMin, k.octave); gMax = Math.max(gMax, k.octave); }
+    if (gMin > gMax) { gMin = 4; gMax = 4; }
+    const times = [...new Set(ev.map((e) => e.row.t))].sort((a, b) => a - b);
+    let minGap = Infinity; for (let i = 1; i < times.length; i++) minGap = Math.min(minGap, times[i] - times[i - 1]);
+    if (!isFinite(minGap)) minGap = 1;
+    const factor = { tight: 0.8, normal: 1, wide: 1.35 }[state.view.spacing] || 1;
+    // 60 px per quarter note; more if note heads or accidentals (20 px left of the head) would collide.
+    const withAcc = ev.some((e) => e.row.keys.some((k) => Math.round(k.alter) !== 0));
+    const smallest = withAcc ? RX + 23 : 2.6 * RX;
+    const ppq = Math.max(60, Math.ceil(smallest / minGap)) * factor;
+    // "compact": every doubling of a duration gets only one unit more space (as in engraving),
+    // "exact": distance strictly proportional to time.
+    const compact = state.view.time !== 'exact';
+    const unit = Math.max(smallest, 60 * minGap) * factor;
+    const fx = (x) => x.toFixed(6);
+    const layout = ms.map((m) => {
+      if (!compact) return null;
+      const end = m.start + m.length;
+      const pts = [m.start, end];
+      for (const e of ev) if (e.row.t >= m.start - 1e-9 && e.row.t < end - 1e-9) pts.push(e.row.t);
+      for (const rs of r.timeline.rests) if (rs.t >= m.start - 1e-9 && rs.t < end - 1e-9) pts.push(rs.t);
+      const sorted = [...new Map(pts.map((x) => [fx(x), x])).values()].sort((a, b) => a - b);
+      const map = new Map([[fx(sorted[0]), 0]]);
+      let off = 0;
+      for (let i = 1; i < sorted.length; i++) {
+        const d = sorted[i] - sorted[i - 1];
+        off += unit * Math.max(0.5, 1 + Math.log2(d / minGap));
+        map.set(fx(sorted[i]), off);
+      }
+      return { map, length: off };
+    });
+    const offIn = (x, k) => (compact ? (layout[k].map.get(fx(x)) || 0) : (x - ms[k].start) * ppq);
+    const zoom = fs.on ? (parseFloat(state.view.size) || 1) : 1;   // "−/+" in fullscreen
+    const room = Math.max(320, box.clientWidth || 900) / zoom;
+    const usable = room - LEFT - 24;
+    // segment = a measure or part of it [t0, t1); a row = a sequence of segments
+    const segment = (k, t0, t1) => ({ k, t0, t1, b: PAD + offIn(t1, k) - offIn(t0, k) });
+    const whole = ms.map((m, k) => segment(k, m.start, m.start + m.length));
+    const breaks = state.view.breaks || 'phrase';
+    const rowsOut = [];
+    const pack = (parts, fresh) => {             // fill into rows; anything too wide wraps at the barline
+      let cur = [], w = 0, first = fresh;
+      for (const u of parts) {
+        if (cur.length && w + u.b > usable) { rowsOut.push({ e: cur, fresh: first }); first = false; cur = []; w = 0; }
+        cur.push(u); w += u.b;
+      }
+      if (cur.length) rowsOut.push({ e: cur, fresh: first });
+    };
+    if (breaks === 'phrase' && state.phrases && state.phrases.bounds.length > 2) {
+      // by phrase: every phrase (usually a line of the song) starts on a new row
+      const g = state.phrases.bounds;
+      for (let i = 1; i < g.length; i++) {
+        const parts = [];
+        ms.forEach((m, k) => { const t0 = Math.max(m.start, g[i - 1]), t1 = Math.min(m.start + m.length, g[i]); if (t1 - t0 > 1e-9) parts.push(segment(k, t0, t1)); });
+        pack(parts, true);
+      }
+    } else {
+      let perRow = parseInt(breaks, 10);
+      if (!perRow) {
+        const avg = whole.reduce((a, u) => a + u.b, 0) / Math.max(1, whole.length);
+        perRow = Math.max(1, Math.floor(usable / avg));
+      }
+      for (let i = 0; i < whole.length; i += perRow) rowsOut.push({ e: whole.slice(i, i + perRow), fresh: true });
+    }
+    lastRowStarts = rowsOut.map((z) => z.e[0].t0);
+    const segmentFor = (z, x, k) => z.e.find((u) => u.k === k && x >= u.t0 - 1e-9 && x < u.t1 - 1e-9);
+    // The block from C4 is the anchor (thicker lines) and appears on every row; count up and down from it.
+    // "used only": above and below only as far as these measures go. "all": the whole range of the piece.
+    const allOct = state.view.octaves === 'all';
+    const range = rowsOut.map((z) => {
+      let a = 4, b = 4;
+      if (allOct) { a = Math.min(a, gMin); b = Math.max(b, gMax); }
+      else for (const e of ev) if (segmentFor(z, e.row.t, e.row.measureIdx)) for (const k of e.row.keys) { a = Math.min(a, k.octave); b = Math.max(b, k.octave); }
+      const l = []; for (let o = b; o >= a; o--) l.push(o); return l;
+    });
+    const sysHeight = (list) => (list.length - 1) * BLOCK + 3 * LG + RY + 6;
+    const top = 16, gap = 3 * LG, gapWrap = 2 * LG;     // new phrase: more space; wrapped continuation: less
+    const spaceBefore = (zi) => (zi === 0 ? 0 : (rowsOut[zi].fresh ? gap : gapWrap));
+    const W = Math.ceil(Math.max(...rowsOut.map((z) => LEFT + z.e.reduce((a, u) => a + u.b, 0) + 16)));
+    const H = Math.ceil(range.reduce((a, b, zi) => a + spaceBefore(zi) + top + sysHeight(b), 0) + 12);
+    const c = { sheet: cssColor('--sheet', light), staff: cssColor('--staff', light), staff4: cssColor('--staff-c4', light), rest: cssColor('--rest', light), acc: cssColor('--acc', light), muted: cssColor('--muted', light) };
+    const out = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" font-family="IBM Plex Sans, Segoe UI, system-ui, sans-serif" role="img" aria-label="${esc(t('title'))} ${esc(state.title || '')}">`,
+      `<rect width="${W}" height="${H}" fill="${c.sheet}"/>`];
+    const measureOf = (x) => ms.findIndex((m) => x >= m.start - 1e-9 && x < m.start + m.length - 1e-9);
+    let y = 0;
+    rowsOut.forEach((z, zi) => {
+      y += spaceBefore(zi);
+      const okt = range[zi];
+      const sysH = sysHeight(okt);
+      const y0 = y + top;
+      const yTop = (o) => y0 + okt.indexOf(o) * BLOCK;
+      const minO = okt[okt.length - 1], maxO = okt[0];
+      const yBottom = yTop(minO) + 2 * LG;
+      const left = new Map(); let acc = LEFT; for (const u of z.e) { left.set(u, acc); acc += u.b; }
+      const xEnd = acc;
+      const xFor = (x, u) => left.get(u) + PAD + offIn(x, u.k) - offIn(u.t0, u.k);
+      for (const o of okt) {
+        const anchor = o === 4;                       // octave from C4: thicker, stronger lines
+        for (let i = 0; i < 3; i++) out.push(`<line x1="${LEFT - 20}" y1="${yTop(o) + i * LG}" x2="${xEnd}" y2="${yTop(o) + i * LG}" stroke="${anchor ? c.staff4 : c.staff}" stroke-width="${anchor ? 2.2 : 1}"/>`);
+      }
+      const barline = (x) => out.push(`<line x1="${x}" y1="${y0 - 6}" x2="${x}" y2="${yBottom + 6}" stroke="${c.muted}" stroke-width="1" stroke-dasharray="3 5" opacity="0.45"/>`);
+      z.e.forEach((u, j) => {                       // barlines: faint and dashed, no numbers - only where a measure starts
+        if (j > 0 && Math.abs(u.t0 - ms[u.k].start) < 1e-9) barline(left.get(u) + 6);
+      });
+      const last = z.e[z.e.length - 1];
+      if (Math.abs(last.t1 - (ms[last.k].start + ms[last.k].length)) < 1e-9) barline(xEnd);
+      for (const rest of r.timeline.rests) {
+        const k = measureOf(rest.t); const u = k >= 0 ? segmentFor(z, rest.t, k) : null; if (!u) continue;
+        const x = xFor(rest.t, u);
+        out.push(`<line x1="${x}" y1="${yTop(maxO)}" x2="${x}" y2="${yBottom}" stroke="${c.rest}" stroke-width="1.2"/>`);
+      }
+      for (const e of ev) {
+        const u = segmentFor(z, e.row.t, e.row.measureIdx); if (!u) continue;
+        const x = xFor(e.row.t, u);
+        const yB0 = y0 - 8, yB1 = yTop(minO) + 3 * LG + RY + 4;
+        const g = [`<g class="ev${e.i === state.sel ? ' active' : ''}" data-i="${e.i}"><title>${esc(t('sel.where', e.row.label, e.row.beat))}: ${esc(e.row.line)}</title><rect class="band" x="${x - RX - 7}" y="${yB0}" width="${2 * RX + 14}" height="${yB1 - yB0}" rx="5" fill="transparent"/>`];
+        const notes = e.row.keys.map((k) => ({ k, y: yTop(k.octave) + PLACE[k.step] * LG })).sort((a, b) => a.y - b.y);
+        let prevY = -Infinity, prevShifted = false;
+        for (const n of notes) {
+          const second = n.y - prevY < 2 * RY - 0.1;        // a second in the same block: put the head next to it
+          const dx = second && !prevShifted ? 2 * RX - 1 : 0;
+          prevShifted = dx !== 0; prevY = n.y;
+          const f0 = COLOR[n.k.step] || '#888888';
+          const f = state.view.left === 'darker' && n.k.hand === 'lower' ? darker(f0) : f0;
+          g.push(`<ellipse cx="${x + dx}" cy="${n.y}" rx="${RX}" ry="${RY}" fill="${f}" stroke="rgba(0,0,0,0.4)" stroke-width="1"/>`);
+          const sign = ACC_SIGN[String(Math.round(n.k.alter))];
+          if (sign) g.push(`<text x="${x - 20 - (sign.length - 1) * 7}" y="${n.y + 4}" font-size="13" font-weight="700" fill="${c.acc}">${sign}</text>`);
+        }
+        g.push('</g>');
+        out.push(g.join(''));
+      }
+      y += top + sysH;
+    });
+    out.push('</svg>');
+    sheetSvgText = out.join('');
+    if (light === 'textOnly') return sheetSvgText;
+    const shownWidth = Math.max(Math.min(W, room), Math.round(W * 0.7));
+    box.innerHTML = sheetSvgText;
+    const svg = box.querySelector('svg');
+    svg.style.width = Math.round(shownWidth * zoom) + 'px';
+    markColors();
+    return sheetSvgText;
+  }
+
+  function markColors() {
+    const r = state.result; if (!r) return;
+    for (const g of document.querySelectorAll('#sheet .ev')) g.classList.toggle('active', Number(g.dataset.i) === state.sel);
+    const row = r.rows[state.sel];
+    $('#selection').innerHTML = row ? `${esc(t('sel.where', row.label, row.beat))}: <span class="code">${codeHtml(row.line)}</span>${row.held.length ? ' · ' + esc(t('detail.holds')) + ' ' + row.held.map((x) => `<span class="code ${handClass(x)}">${esc(x)}</span>`).join(', ') : ''}` : '';
+    const box = $('#sheet'), active = box.querySelector('.ev.active .band');
+    if (active && box.scrollWidth > box.clientWidth) {
+      const br = active.getBoundingClientRect(), bb = box.getBoundingClientRect();
+      if (br.left < bb.left + 20 || br.right > bb.right - 20) box.scrollLeft += br.left - bb.left - bb.width / 2;
+    }
+    if (active && fs.on) {
+      const f = $('#colors'), br = active.getBoundingClientRect();
+      if (br.top < 60 || br.bottom > f.clientHeight - 20) f.scrollTop += br.top - f.clientHeight / 2;
+    }
+  }
+
+  // ---------- keyboard
+  const WHITE = [0, 2, 4, 5, 7, 9, 11];
+  function keyboardSvg(row, rows) {
+    let mn = 60, mx = 72;
+    for (const rr of rows) for (const k of rr.keys.concat(rr.heldKeys)) { mn = Math.min(mn, Math.round(k.midi)); mx = Math.max(mx, Math.round(k.midi)); }
+    const lo = Math.floor(mn / 12) * 12;
+    let hi = Math.floor(mx / 12) * 12 + 11;
+    if (hi - lo < 23) hi = lo + 23;
+    const W = 22, H = 104, BW = 13, BH = 64;
+    const press = new Map(), held = new Map();
+    for (const k of row.keys) press.set(Math.round(k.midi), k);
+    for (const k of row.heldKeys) if (!press.has(Math.round(k.midi))) held.set(Math.round(k.midi), k);
+    const whites = [], blacks = [];
+    let wi = 0;
+    for (let m = lo; m <= hi; m++) {
+      if (WHITE.includes(m % 12)) { whites.push({ m, x: wi * W }); wi++; }
+      else blacks.push({ m, x: wi * W - BW / 2 });
+    }
+    const width = wi * W, labelY1 = H + 16, labelY2 = H + 32;
+    const fillFor = (m, base) => {
+      if (press.has(m)) return press.get(m).hand === 'upper' ? 'var(--rh)' : 'var(--lh)';
+      if (held.has(m)) return 'var(--sel)';
+      return base;
+    };
+    let s = `<svg viewBox="-1 -1 ${width + 2} ${H + 40}" role="img" aria-label="${esc(t('keyboard', row.line))}">`;
+    for (const k of whites) {
+      const h = held.has(k.m);
+      s += `<rect x="${k.x}" y="0" width="${W}" height="${H}" rx="3" fill="${fillFor(k.m, 'var(--key-white)')}" stroke="${h ? (held.get(k.m).hand === 'upper' ? 'var(--rh)' : 'var(--lh)') : 'var(--key-edge)'}" stroke-width="${h ? 2 : 1}" ${h ? 'stroke-dasharray="4 3"' : ''}/>`;
+    }
+    for (const k of blacks) {
+      const h = held.has(k.m);
+      s += `<rect x="${k.x}" y="0" width="${BW}" height="${BH}" rx="2" fill="${fillFor(k.m, 'var(--key-black)')}" stroke="${h ? (held.get(k.m).hand === 'upper' ? 'var(--rh)' : 'var(--lh)') : 'var(--key-black)'}" stroke-width="${h ? 2 : 1}" ${h ? 'stroke-dasharray="4 3"' : ''}/>`;
+    }
+    const label = (k, yy, info, dim) => `<text x="${k.x + (WHITE.includes(k.m % 12) ? W / 2 : BW / 2)}" y="${yy}" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" font-weight="600" fill="${info.hand === 'upper' ? 'var(--rh)' : 'var(--lh)'}" ${dim ? 'opacity="0.7"' : ''}>${esc(info.name)}</text>`;
+    for (const k of whites) {
+      if (press.has(k.m)) s += label(k, labelY1, press.get(k.m), false);
+      else if (held.has(k.m)) s += label(k, labelY1, held.get(k.m), true);
+      else if (k.m === 60) s += `<text x="${k.x + W / 2}" y="${H - 8}" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="var(--muted)">C4</text>`;
+    }
+    for (const k of blacks) {
+      if (press.has(k.m)) s += label(k, labelY2, press.get(k.m), false);
+      else if (held.has(k.m)) s += label(k, labelY2, held.get(k.m), true);
+    }
+    return s + '</svg>';
+  }
+
+  // ---------- report
+  function findRow(msg) {
+    const m = /^Measure (\S+?), beat ([^:]+):/.exec(msg);
+    if (!m || !state.result) return -1;
+    return state.result.rows.findIndex((r) => r.label === m[1] && r.beat === m[2]);
+  }
+  function listHtml(title, items, kind) {
+    const lis = items.map((m) => {
+      const idx = findRow(m);
+      const cut = m.indexOf(': ');
+      const loc = cut > 0 ? m.slice(0, cut) : '';
+      const text = cut > 0 ? m.slice(cut + 2) : m;
+      const inner = `${loc ? `<span class="loc">${esc(loc)}</span>` : ''}${esc(text)}`;
+      return `<li>${idx >= 0 ? `<button type="button" data-goto="${idx}">${inner}</button>` : `<div style="padding:6px 8px">${inner}</div>`}</li>`;
+    }).join('');
+    return `<div class="list ${kind}"><h3>${esc(title)} <span class="count">${items.length}</span></h3>${items.length ? `<ul>${lis}</ul>` : `<p class="empty">${esc(t('list.none'))}</p>`}</div>`;
+  }
+  function renderReport() {
+    const r = state.result, z = r.report.counts;
+    const tiles = [
+      [r.stats.attacks, t('tile.attacks')],
+      [z.tie_continuations + z.same_pitch_slur_held, t('tile.held')],
+      [z.duplicates_merged + z.both_hands_merged, t('tile.merged')],
+      [z.rests + z.grace_notes + z.cue_notes, t('tile.skipped')],
+    ];
+    const note = t('report.langNote');
+    $('#report').innerHTML = `
+      <h2>${esc(t('report.title'))}</h2>${note ? `<p class="lang-note">${esc(note)}</p>` : ''}
+      <div class="tiles">${tiles.map(([n, x]) => `<div class="tile"><b>${n}</b><span>${esc(x)}</span></div>`).join('')}</div>
+      <div class="lists">
+        ${listHtml(t('list.check'), r.report.check, 'check')}
+        ${listHtml(t('list.hands'), r.report.hands, 'hand')}
+        ${listHtml(t('list.warnings'), r.report.warnings, 'warn')}
+        ${listHtml(t('list.info'), r.report.info, 'info')}
+      </div>
+      <details><summary>${esc(t('report.checklist'))}</summary>
+        <div class="textblock"><button type="button" class="btn small" data-copy="checklist">${esc(t('copy'))}</button><pre>${esc(r.checklistText)}</pre></div></details>
+      <details><summary>${esc(t('report.text'))}</summary>
+        <div class="textblock"><button type="button" class="btn small" data-copy="report">${esc(t('copy'))}</button><pre>${esc(r.reportText)}</pre></div></details>`;
+  }
+
+  function renderError() {
+    const e = state.error;
+    if (!e) { $('#error').innerHTML = ''; return; }
+    let html = `<div class="error"><strong>${esc(t('err.title'))}</strong><pre>${esc(e.message || String(e))}</pre>`;
+    if (e.staves) {
+      html += `<div class="assign"><span>${esc(t('err.assign'))}</span>` +
+        e.staves.map(([p, s, name], i) => `<label>${esc(p)}/${s} ${name ? '“' + esc(name) + '”' : ''}
+          <select id="assign-${i}" data-key="${esc(p)}/${s}"><option value="">${esc(t('err.leaveOut'))}</option><option value="upper">${esc(t('err.upper'))}</option><option value="lower">${esc(t('err.lower'))}</option></select></label>`).join('') +
+        `<div><button type="button" class="btn primary" id="assign-go">${esc(t('err.convert'))}</button></div></div>`;
+    }
+    $('#error').innerHTML = html + '</div>';
+    const go = $('#assign-go');
+    if (go) go.addEventListener('click', () => {
+      const upper = [], lower = [];
+      for (const sel of document.querySelectorAll('.assign select')) { if (sel.value === 'upper') upper.push(sel.dataset.key); if (sel.value === 'lower') lower.push(sel.dataset.key); }
+      if (!upper.length || !lower.length) { toast(t('err.pick')); return; }
+      state.mapping = { upper: upper.join(','), lower: lower.join(',') }; run();
+    });
+  }
+
+  // ---------- fullscreen (real fullscreen if the browser allows it; otherwise the sheet fills the window)
+  const SIZES = [0.75, 1, 1.25, 1.5, 1.75, 2, 2.5];
+  function fullscreen(on) {
+    const f = $('#colors'); if (!f || fs.on === on) return;
+    fs.on = on;
+    f.classList.toggle('fullscreen', on);
+    document.documentElement.style.overflow = on ? 'hidden' : '';
+    const b = $('#fullscreen-btn'); b.setAttribute('aria-pressed', String(on)); b.textContent = on ? t('fs.close') : t('fs.open');
+    try {
+      if (on && document.fullscreenEnabled && f.requestFullscreen) f.requestFullscreen().catch(() => {});
+      if (!on && document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    } catch (e) { /* window fullscreen is enough */ }
+    renderColors();
+    if (!on) f.scrollIntoView({ block: 'start' });
+  }
+  function resize(step) {
+    const now = parseFloat(state.view.size) || 1;
+    let i = SIZES.findIndex((g) => g >= now - 1e-9); if (i < 0) i = SIZES.length - 1;
+    state.view.size = String(SIZES[Math.max(0, Math.min(SIZES.length - 1, i + step))]);
+    saveView();
+    renderColors();
+  }
+  if (store.get('notencode-details') === 'open') $('#more').open = true;
+  $('#more').addEventListener('toggle', () => store.set('notencode-details', $('#more').open ? 'open' : 'closed'));
+  $('#fullscreen-btn').addEventListener('click', () => fullscreen(!fs.on));
+  $('#smaller').addEventListener('click', () => resize(-1));
+  $('#bigger').addEventListener('click', () => resize(1));
+  document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement && fs.on) fullscreen(false); });
+
+  // ---------- lines by hand: right-click (phone: long press) on a note
+  const menu = { i: -1, hinted: false };
+  function currentBounds() {
+    const r = state.result, total = r.timeline.total;
+    if ((state.view.breaks || 'phrase') === 'phrase' && state.phrases) return state.phrases.bounds.slice();
+    return [...new Set([...(lastRowStarts || [0]), 0, total])].sort((a, b) => a - b);
+  }
+  function attackAfter(x) {
+    const r = state.result; let best = r.timeline.total;
+    for (const row of r.rows) if (!row.empty && row.keys.length && row.t > x + 1e-9 && row.t < best) best = row.t;
+    return best;
+  }
+  function changeLines(kind, x) {
+    const r = state.result, total = r.timeline.total;
+    if (kind === 'auto') { setManualBreaks(null); return; }
+    let G = currentBounds();
+    const a = Math.max(...G.filter((g) => g <= x + 1e-9)), b = Math.min(...G.filter((g) => g > x + 1e-9));
+    const drop = (v) => { if (v > 1e-9 && v < total - 1e-9) G = G.filter((g) => Math.abs(g - v) > 1e-9); };
+    const addB = (v) => { if (v > 1e-9 && v < total - 1e-9 && !G.some((g) => Math.abs(g - v) < 1e-9)) G.push(v); };
+    if (kind === 'next') { drop(b); addB(x); }                 // this note and the rest of the row move to the next row
+    else if (kind === 'prev') { drop(a); addB(attackAfter(x)); } // the start of the row up to this note moves to the previous row
+    else if (kind === 'new') addB(x);                          // a new row from this note
+    setManualBreaks(G.filter((g) => g > 1e-9 && g < total - 1e-9).sort((p, q) => p - q));
+  }
+  function setManualBreaks(inner) {
+    state.manualBreaks = inner;
+    computePhrases();
+    if (state.view.breaks !== 'phrase') {
+      state.view.breaks = 'phrase';
+      saveView();
+      for (const b of document.querySelectorAll('[data-view="breaks"] button')) b.setAttribute('aria-pressed', String(b.dataset.val === 'phrase'));
+    }
+    renderColors();
+    let saved = false;
+    if (state.pieceKey) {
+      if (inner) store.set(state.pieceKey, JSON.stringify(inner.map((v) => Math.round(v * 1e6) / 1e6))); else store.del(state.pieceKey);
+      saved = !inner || store.get(state.pieceKey) !== null;
+    }
+    if (!menu.hinted && inner) { menu.hinted = true; toast(saved ? t('lines.saved') : t('lines.notSaved')); }
+  }
+  function menuClose() { const m = $('#note-menu'); m.hidden = true; m.innerHTML = ''; menu.i = -1; }
+  function menuOpen(i, x, y) {
+    const r = state.result; const row = r && r.rows[i]; if (!row) return;
+    select(i, false);
+    const G = currentBounds(), total = r.timeline.total, at = row.t;
+    const a = Math.max(...G.filter((g) => g <= at + 1e-9)), b = Math.min(...G.filter((g) => g > at + 1e-9));
+    const atStart = Math.abs(at - a) < 1e-9;
+    const items = [
+      ['next', t('menu.next'), !(atStart && b >= total - 1e-9)],
+      ['prev', t('menu.prev'), a > 1e-9],
+      ['new', t('menu.new'), !atStart],
+    ];
+    const m = $('#note-menu');
+    m.innerHTML = `<div class="head">${esc(t('sel.where', row.label, row.beat))}</div>` +
+      items.map(([kind, text, on]) => `<button type="button" role="menuitem" data-lines="${kind}"${on ? '' : ' disabled'}>${esc(text)}</button>`).join('') +
+      (state.manualBreaks ? `<div class="sep"></div><button type="button" role="menuitem" data-lines="auto">${esc(t('menu.auto'))}</button>` : '');
+    menu.i = i; menu.since = performance.now(); m.hidden = false;
+    const w = m.offsetWidth, h = m.offsetHeight;
+    m.style.left = Math.max(8, Math.min(x, window.innerWidth - w - 8)) + 'px';
+    m.style.top = Math.max(8, Math.min(y, window.innerHeight - h - 8)) + 'px';
+    const firstBtn = m.querySelector('button:not([disabled])'); if (firstBtn) firstBtn.focus();
+  }
+  document.addEventListener('contextmenu', (ev) => {
+    const g = ev.target.closest && ev.target.closest('#sheet .ev'); if (!g) return;
+    ev.preventDefault(); menuOpen(Number(g.dataset.i), ev.clientX, ev.clientY);
+  });
+  document.addEventListener('click', (ev) => {
+    const m = $('#note-menu'); if (m.hidden || longPressed) return;   // the click after a long press does not close the menu
+    const b = ev.target.closest('#note-menu [data-lines]');
+    if (b) { if (!b.disabled) { const row = state.result.rows[menu.i]; menuClose(); if (row) changeLines(b.dataset.lines, row.t); } ev.stopPropagation(); return; }
+    if (!ev.target.closest('#note-menu')) menuClose();
+  }, true);
+  document.addEventListener('keydown', (ev) => {
+    if ($('#note-menu').hidden) return;
+    if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); menuClose(); return; }
+    if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+      const bs = [...document.querySelectorAll('#note-menu button:not([disabled])')]; if (!bs.length) return;
+      ev.preventDefault(); ev.stopPropagation();
+      const k = bs.indexOf(document.activeElement);
+      bs[(k + (ev.key === 'ArrowDown' ? 1 : -1) + bs.length) % bs.length].focus();
+    }
+  }, true);
+  window.addEventListener('scroll', (ev) => {   // scrolling closes the menu (not the scroll that follows right after opening)
+    if (!$('#note-menu').hidden && performance.now() - (menu.since || 0) > 400 && !(ev.target.closest && ev.target.closest('#note-menu'))) menuClose();
+  }, true);
+  window.addEventListener('resize', () => { if (!$('#note-menu').hidden) menuClose(); });
+  let pressTimer = null, longPressed = false;        // phone: long press = right-click
+  document.addEventListener('pointerdown', (ev) => {
+    if (ev.pointerType === 'mouse') return;
+    const note = ev.target.closest('#sheet .ev'); if (!note) return;
+    clearTimeout(pressTimer); longPressed = false;
+    const x = ev.clientX, y = ev.clientY;
+    pressTimer = setTimeout(() => { longPressed = true; menuOpen(Number(note.dataset.i), x, y); }, 600);
+  });
+  for (const type of ['pointerup', 'pointercancel', 'pointerleave']) document.addEventListener(type, () => clearTimeout(pressTimer));
+  document.addEventListener('click', (ev) => {        // the click after a long press opens nothing
+    if (longPressed) { longPressed = false; ev.preventDefault(); ev.stopPropagation(); }
+  }, true);
+
+  // ---------- controls
+  let toastTimer = null;
+  function toast(msg) { const el = $('#toast'); el.textContent = msg; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.hidden = true; }, 2200); }
+  async function copy(text, what) {
+    try { await navigator.clipboard.writeText(text); toast(t('copied', what)); }
+    catch (e) {
+      const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+      let ok = false; try { ok = document.execCommand('copy'); } catch (e2) { ok = false; }
+      document.body.removeChild(ta); toast(ok ? t('copied', what) : t('copyFail'));
+    }
+  }
+  function select(i, scroll) {
+    const r = state.result; if (!r) return;
+    state.sel = Math.max(0, Math.min(r.rows.length - 1, i));
+    renderDetail();
+    if (scroll && !fs.on) { const b = document.querySelector(`.line[data-i="${state.sel}"]`); if (b && $('#more').open) b.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+  }
+
+  document.addEventListener('click', (ev) => {
+    const z = ev.target.closest('.line'); if (z) { select(Number(z.dataset.i), false); return; }
+    const fe = ev.target.closest('#sheet .ev'); if (fe) { select(Number(fe.dataset.i), true); return; }
+    const vb = ev.target.closest('[data-view] button');
+    if (vb) {
+      state.view[vb.closest('.seg').dataset.view] = vb.dataset.val;
+      saveView();
+      for (const b of vb.closest('.seg').querySelectorAll('button')) b.setAttribute('aria-pressed', String(b === vb));
+      renderColors(); return;
+    }
+    const g = ev.target.closest('[data-goto]'); if (g) { select(Number(g.dataset.goto), true); return; }
+    const c = ev.target.closest('[data-copy]');
+    if (c && state.result) { const isReport = c.dataset.copy === 'report'; copy(isReport ? state.result.reportText : state.result.checklistText, t(isReport ? 'what.report' : 'what.checklist')); return; }
+    const sb = ev.target.closest('[data-opt] button');
+    if (sb) {
+      const seg = sb.closest('.seg'); state.opts[seg.dataset.opt] = sb.dataset.val;
+      store.set('notencode-options', JSON.stringify(state.opts));
+      if (state.xmlText) run(); else render();
+    }
+  });
+  $('#prev').addEventListener('click', () => select(state.sel - 1, true));
+  $('#next').addEventListener('click', () => select(state.sel + 1, true));
+  $('#copy-code').addEventListener('click', () => { if (state.result) copy(state.result.codeText, t('what.code')); });
+  document.addEventListener('keydown', (ev) => {
+    if (ev.target.closest('select, input, textarea')) return;
+    if (ev.key === 'Escape' && fs.on) { ev.preventDefault(); fullscreen(false); return; }
+    const fwd = ev.key === 'ArrowDown' || ev.key === 'j' || (fs.on && ev.key === 'ArrowRight');
+    const back = ev.key === 'ArrowUp' || ev.key === 'k' || (fs.on && ev.key === 'ArrowLeft');
+    if (fwd) { ev.preventDefault(); select(state.sel + 1, true); }
+    if (back) { ev.preventDefault(); select(state.sel - 1, true); }
+  });
+  $('#file-input').addEventListener('change', (ev) => { const f = ev.target.files[0]; if (f) openFile(f); ev.target.value = ''; });
+
+  // ---------- saving files
+  const download = (blob, name) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000); };
+  const baseName = () => (state.title || state.source || 'easy-piano').replace(/\.[^.]+$/, '').replace(/[\\/:*?"<>|]+/g, '').trim() || 'easy-piano';
+  $('#save-txt').addEventListener('click', () => {
+    if (!state.result) return;
+    download(new Blob([state.result.codeText], { type: 'text/plain;charset=utf-8' }), `${(state.source || 'notencode').replace(/\.[^.]+$/, '')}_notencode.txt`);
+  });
+  $('#svg').addEventListener('click', () => { const x = renderColors(true); renderColors(); download(new Blob([x], { type: 'image/svg+xml' }), baseName() + '_easy-piano.svg'); });
+  $('#png').addEventListener('click', () => {
+    const x = renderColors(true); renderColors();
+    const img = new Image();
+    img.onload = () => {
+      const cv = document.createElement('canvas'); cv.width = img.width * 2; cv.height = img.height * 2;
+      const cx = cv.getContext('2d'); cx.scale(2, 2); cx.drawImage(img, 0, 0);
+      cv.toBlob((b) => download(b, baseName() + '_easy-piano.png'), 'image/png');
+    };
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(x);
+  });
+  $('#print').addEventListener('click', () => window.print());
+  window.addEventListener('beforeprint', () => renderColors(true));
+  window.addEventListener('afterprint', () => renderColors());
+  try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => renderColors()); } catch (e) { /* old browser */ }
+  new MutationObserver(() => renderColors()).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  let resizeTimer = null;
+  window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (!/^\d+$/.test(state.view.breaks)) renderColors(); }, 150); });
+
+  // drag & drop
+  let dragDepth = 0;
+  window.addEventListener('dragenter', (e) => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) { dragDepth++; $('#dropzone').hidden = false; e.preventDefault(); } });
+  window.addEventListener('dragover', (e) => { e.preventDefault(); });
+  window.addEventListener('dragleave', () => { dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) $('#dropzone').hidden = true; });
+  window.addEventListener('drop', (e) => { e.preventDefault(); dragDepth = 0; $('#dropzone').hidden = true; const f = e.dataTransfer.files[0]; if (f) openFile(f); });
+
+  // start: built-in example
+  applyLang();
+  state.xmlText = document.getElementById('example-xml').textContent;
+  state.source = 'silent_night.mxl'; state.example = true;
+  state.pieceKey = pieceKey(state.xmlText); state.manualBreaks = loadManualBreaks();
+  try { const bt = JSON.parse(document.getElementById('example-lyrics').textContent); state.lyricsExtra = { punctuation: bt.punctuation, syllables: bt.syllables }; } catch (e) { state.lyricsExtra = null; }
+  run();
+})();
+</script>
+
+</body></html>

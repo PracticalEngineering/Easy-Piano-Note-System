@@ -1,0 +1,9 @@
+{
+  "name": "notencode-build-tools",
+  "private": true,
+  "description": "Only needed to compare the JavaScript core with the Python reference.",
+  "license": "MIT",
+  "devDependencies": {
+    "@xmldom/xmldom": "0.8.10"
+  }
+}
